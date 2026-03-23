@@ -1,6 +1,6 @@
 # Image Filter Studio
 
-**Image Filter Studio** is a professional web-based image processing application built for the **API Programming (C#, C++)** course. It demonstrates how to build a modern, decoupled architecture using **ASP.NET Core 8** and **Vanilla JavaScript**, leveraging the power of **SkiaSharp** for high-performance graphics.
+**Image Filter Studio** is a professional web-based image processing application built for the **API Programming (C#, C++)** course. It demonstrates how to build a modern, decoupled architecture using **ASP.NET Core 8** and **Vanilla JavaScript + Tailwind CSS**, leveraging the power of **SkiaSharp** for high-performance graphics.
 
 ## 🚀 Overview
 
@@ -14,12 +14,12 @@
 - **Framework:** ASP.NET Core 8.0 LTS (Minimal API / Controller)
 - **Language:** C# 12
 - **Graphics Library:** SkiaSharp (2.88.x)
-- **Database:** SQL Server + EF Core (optional for history)
+- **Database:** SQL Server + EF Core (Required for Storage Cleanup & Session Recovery)
 - **API Documentation:** Swagger / OpenAPI
 
 ### Frontend
 - **Markup:** HTML5
-- **Styling:** CSS3 (Flexbox / Grid)
+- **Styling:** Tailwind CSS v3 (via CDN — no build step required)
 - **Logic:** Vanilla JavaScript (ES6+), Fetch API
 - **Preview:** FileReader API for instant local preview
 
@@ -31,13 +31,12 @@ image-filter-studio/
 │   ├── Controllers/          # Image and Filter API Endpoints
 │   ├── Services/             # Business logic (SkiaSharp implementation)
 │   ├── Models/               # Request/Response DTOs
-│   ├── Data/                 # SQL Server Context (optional)
+│   ├── Data/                 # SQL Server Context
 │   └── Storage/              # uploads/ for source, output/ for results
-└── frontend/                 # Static HTML/CSS/JS (:5500)
+└── frontend/                 # Static HTML/Tailwind/JS (:5500)
     ├── assets/               # Static assets
-    ├── css/                  # style.css (Theme), components.css (UI)
     ├── js/                   # api.js (Fetch), ui.js (DOM), app.js (Entry)
-    └── index.html            # Main User Interface
+    └── index.html            # Main UI (Tailwind CSS via CDN)
 ```
 
 ## 📡 API Reference
@@ -61,9 +60,11 @@ image-filter-studio/
 
 ### Advanced Features (Plus Points)
 - **Crop/Resize:** Subset extraction via `SKBitmap`.
-- **Text Watermark:** Drawing text using `SKCanvas`.
 - **Rotate/Flip:** 90/180/270 degree rotation and mirroring.
-- **History:** Undo/Redo support via SQL Server.
+### Database Features / Data Management
+- **Session Recovery:** Resume draft edits across page reloads via SQL Server.
+- **Storage Cleanup:** Auto-delete images older than 24h using `CreatedAt` timestamp to prevent disk bloat.
+- **Academic Score (Plus Point):** Demonstrating real-world data tracking over EF Core.
 
 ## 🎓 Academic Connection (GDI vs SkiaSharp)
 
@@ -72,7 +73,6 @@ image-filter-studio/
 | `GetDC()` / `ReleaseDC()` | `SKSurface` / `SKCanvas` |
 | `CreatePen()` / `BRUSH` | `SKPaint` |
 | `SetPixel()` / `GetPixel()` | `bitmap.SetPixel()` / `GetPixel()` |
-| `TextOut()` / `DrawString()` | `canvas.DrawText()` |
 | `BitBlt()` | `canvas.DrawBitmap()` |
 
 ## 📄 License
