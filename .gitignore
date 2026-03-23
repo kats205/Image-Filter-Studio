@@ -52,3 +52,27 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code
+.vscode/
+
+# Project Specific - Storage
+backend/Storage/uploads/*
+backend/Storage/output/*
+!backend/Storage/uploads/.gitkeep
+!backend/Storage/output/.gitkeep
+
+# Exclude documentation files that are not part of the source
+image-filter-studio.md
+ANTIGRAVITY.md
+
+# Agent
+.agent/
