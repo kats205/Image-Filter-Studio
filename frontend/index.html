@@ -1,67 +1,815 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Filter Studio</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="flex flex-col min-h-screen bg-gray-50 text-gray-800 font-sans">
-    <header class="bg-gray-800 text-white text-center p-6 shadow-md">
-        <h1 class="text-3xl font-bold mb-2">Image Filter Studio</h1>
-        <p class="text-gray-300">Ứng dụng chỉnh sửa ảnh trực tuyến qua API</p>
-    </header>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Image Filter Studio | Refine your vision, effortlessly.</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Manrope:wght@200..800&display=swap"
+      rel="stylesheet"
+    />
 
-    <main class="w-full max-w-6xl mx-auto px-4 py-8 flex-grow">
-        <!-- Section: Upload -->
-        <section id="upload-section">
-            <div class="text-center p-10 border-2 border-dashed border-gray-300 bg-white rounded-xl shadow-sm mb-8 transition hover:border-blue-400">
-                <input type="file" id="imageInput" accept="image/*" class="hidden">
-                <label for="imageInput" class="inline-block px-6 py-3 bg-blue-600 text-white font-medium rounded-lg cursor-pointer hover:bg-blue-700 transition">
-                    📁 Chọn ảnh từ máy
-                </label>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              surface: "#f9f9f7",
+              "on-surface": "#1a1c1b",
+              primary: "#000000",
+              "on-primary": "#ffffff",
+              "surface-container-low": "#f4f4f2",
+              "surface-container-lowest": "#ffffff",
+              "surface-container": "#eeeeec",
+              secondary: "#5f5e5e",
+              "outline-variant": "#c4c7c7",
+              "surface-container-high": "#e8e8e6",
+              "surface-variant": "#e2e3e1",
+            },
+            fontFamily: {
+              headline: ["Newsreader", "serif"],
+              body: ["Manrope", "sans-serif"],
+              label: ["Manrope", "sans-serif"],
+              inter: ["Inter", "sans-serif"],
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      body {
+        font-family: "Manrope", sans-serif;
+      }
+      h1,
+      h2,
+      h3 {
+        font-family: "Newsreader", serif;
+      }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      .canvas-bg {
+        background-image: radial-gradient(#d1d1d1 0.5px, transparent 0.5px);
+        background-size: 16px 16px;
+      }
+      .pane-transition {
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      /* -----------------------------------------------------------
+         NOTIVUE-STYLE STACKED TOAST (Pure Fade & Layering)
+         ----------------------------------------------------------- */
+      #toast-container {
+        pointer-events: none;
+        perspective: 800px;
+      }
+
+      .toast-item {
+        position: absolute; /* Layering on the same spot */
+        left: 50%;
+        transform: translateX(-50%);
+        min-width: 140px; /* Tối thiểu bằng nút, nhưng sẽ giãn ra theo chữ */
+        width: max-content; /* Luôn hiện đầy đủ chữ */
+        max-width: 90vw; /* Không để tràn màn hình di động */
+        transition:
+          opacity 0.5s ease-in-out,
+          transform 0.6s cubic-bezier(0.2, 1, 0.3, 1),
+          filter 0.5s ease;
+        pointer-events: auto;
+        opacity: 0;
+      }
+
+      /* 1st (Top) Toast */
+      .toast-item[data-state="visible"][data-index="0"] {
+        z-index: 100;
+        transform: translateX(-50%) translate3d(0, 0, 0) scale(1);
+        opacity: 1;
+      }
+
+      /* 2nd Toast (Layer behind) */
+      .toast-item[data-state="visible"][data-index="1"] {
+        z-index: 90;
+        transform: translateX(-50%) translate3d(0, 8px, -15px) scale(0.96);
+        opacity: 0.7;
+        filter: blur(0.5px);
+      }
+
+      /* 3rd Toast (Deeper layer) */
+      .toast-item[data-state="visible"][data-index="2"] {
+        z-index: 80;
+        transform: translateX(-50%) translate3d(0, 16px, -30px) scale(0.92);
+        opacity: 0.4;
+        filter: blur(1px);
+      }
+
+      /* Pure Fade Out State */
+      .toast-item[data-state="hidden"] {
+        opacity: 0 !important;
+        filter: blur(4px);
+        pointer-events: none;
+      }
+
+      /* Older toasts hidden */
+      .toast-item[data-index*="3"],
+      .toast-item[data-index*="4"] {
+        opacity: 0 !important;
+        pointer-events: none;
+      }
+
+      /* NO HOVER EXPANSION: Keeping stack static as requested */
+    </style>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+  <body
+    class="bg-surface text-on-surface selection:bg-primary selection:text-on-primary overflow-x-hidden"
+  >
+    <!-- LANDING VIEW -->
+    <div id="landing-view" class="w-full">
+      <header
+        class="bg-[#f9f9f7] flex justify-between items-center w-full px-8 py-6 max-w-none fixed top-0 z-50 border-b relative"
+        style="border-color: #e4e4e0"
+      >
+        <div class="font-serif text-2xl font-bold text-black tracking-tighter">
+          Image Filter Studio
+        </div>
+        <nav
+          class="items-center gap-12 md:absolute md:left-1/2 md:-translate-x-1/2 flex"
+        >
+          <a
+            class="group relative text-primary font-bold pb-1 transition-colors duration-300"
+            href="#"
+          >
+            Gallery
+            <span
+              class="absolute left-0 bottom-0 w-full h-[1.5px] bg-primary scale-x-100 origin-left transition-transform duration-300 ease-out"
+            ></span>
+          </a>
+          <a
+            class="group relative text-secondary font-sans text-sm tracking-wide uppercase hover:text-primary transition-colors duration-300 pb-1"
+            href="#"
+            id="nav-editor-link"
+          >
+            Editor
+            <span
+              class="absolute left-0 bottom-0 w-full h-[1.5px] bg-primary scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300 ease-out"
+            ></span>
+          </a>
+        </nav>
+        <div class="w-[60px] md:w-auto"></div>
+      </header>
+
+      <main class="pt-24" id="landing-main">
+        <!-- Hero Section -->
+        <section
+          class="min-h-[870px] flex flex-col items-center justify-center px-6 text-center bg-surface"
+        >
+          <h1
+            class="hero-title text-[48px] md:text-[80px] leading-[1.15] font-headline font-bold tracking-tight text-primary max-w-5xl mb-16"
+          >
+            Refine your vision,<br />effortlessly.
+          </h1>
+
+          <!-- Upload Card -->
+          <div class="hero-upload-card w-full max-w-xl mx-auto mb-12 relative">
+            <label
+              for="hero-upload"
+              class="border-2 border-dashed border-slate-200 bg-white/50 rounded-3xl p-12 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-all duration-300 group overflow-hidden relative"
+            >
+              <div
+                class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:scale-110 group-hover:text-slate-900 transition-all duration-300 mb-6"
+              >
+                <i data-lucide="upload" class="w-8 h-8"></i>
+              </div>
+              <span class="text-primary font-bold text-lg">Upload Image</span>
+              <p class="text-secondary text-sm mt-2">
+                Drag and drop or click to browse
+              </p>
+            </label>
+            <input
+              class="hidden"
+              id="hero-upload"
+              type="file"
+              accept="image/*"
+            />
+          </div>
+
+          <!-- Image Suggestions -->
+          <div class="flex flex-col items-center gap-6">
+            <p
+              class="font-label text-xs tracking-widest uppercase text-secondary"
+            >
+              No image? Try one of these
+            </p>
+            <div
+              class="flex gap-4 overflow-x-auto pb-4 max-w-full px-4 no-scrollbar"
+            >
+              <img
+                class="w-32 h-20 object-cover rounded shadow-sm hover:opacity-80 transition-opacity cursor-pointer sample-img"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJP7jhsTGr3hI9mOeGow__1Ln7UOECFsU4LjEJ7oZ_uF_oaTOVpBS0_yzr_xxXlbPBIGJkcqyP5J7d7PLwdvdlVpYKVnuOgvIL-j2uot8LdaGz7Iv6zA_7qxrUlQozSf4N0_EpvzI5FuVJgELEx65uWCLW4DBvfbtJYuI2iWspchCfQsuNw-l75WZ7cj0xYHjVJvkpAzZXSoyyw41v58GXa-3n1spKARjPGv_fyHbWgGg2GLuvI9kOxXnZpPbj9m3i6gt-WFeIvx8D"
+                loading="lazy"
+              />
+              <img
+                class="w-32 h-20 object-cover rounded shadow-sm hover:opacity-80 transition-opacity cursor-pointer sample-img"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBH3Bc0SbcAPrgo7mJ6WD6w9R2nnrgv53oMlm_gK6OgR2JWumCohJvy1rq7m4Vwd0Xmi78nq-rogw2SZAXAI1GBV3SUd0eWkMQINvIfLCjkSGNbcwiGa4VOjXz9EPWzkouwzHKL6yaFQ6yp0dSbR_f2tTb4Lb6YsLVaP8VCUa-kvdIb3ThfUwAns769HI888ZjPFSfKK4aBilWIpnLBXWYzHfIGPsvsyFdRGiU3qDKrKwkwE-syDgtwLm5-KWiuBaAQFsYic90DZLcT"
+                loading="lazy"
+              />
+              <img
+                class="w-32 h-20 object-cover rounded shadow-sm hover:opacity-80 transition-opacity cursor-pointer sample-img"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_pNWEFGO1Hd6zAmIC_3qSLQZQUlrWQalI7R2tZbTgaNcxwiGQzUe3jwOnEhfJ3umHey2u9gznX9dtOy7_wEuR3SewujzxydLCaeQ4CFXT9H33sYhFooO1uJkGK2eK1DjKpPSGz4V_I4U9EVDHHncOskQ6-6ldz2Swr0KE-TBbcxhFNkNFTDQ9VhfpQ8FqyBPID6OIxx8nBG9STt2ooBn63L4mkiGPRaddnxNs5RJhx_KNdCyyoxY-iiv-taAZ2aGoc8puyjtUA7zc"
+                loading="lazy"
+              />
+              <img
+                class="w-32 h-20 object-cover rounded shadow-sm hover:opacity-80 transition-opacity cursor-pointer sample-img"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuASBNtuUtZ6OFuNM0L8VftrswCsnTVCv6T7zZkyvR6lFHZwznTD_89N2ItKOe36WlT24p9EfdogJYyO9PneINFw2NaI8goqg9yRe7QxZM7Mf9Fa8VrKc8IcPxs7oDdtjAcpKSLOfjzCL2ljhRrqRERmF4SA2XoqmeMNqlZHL-ssWpLh87ay2pfakJDgqmh77rr1V4v4S9jtzrrH9yOuxrH95Orq05RjuXSfDhEcvyYBc6gWNUIvGnf16x9q2QtXQnI54EfGiWsLMGtm"
+                loading="lazy"
+              />
             </div>
+          </div>
         </section>
 
-        <!-- Section: Preview Before / After -->
-        <section id="preview-section" class="hidden my-8">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div class="text-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                    <h3 class="text-lg font-semibold text-gray-600 mb-4">Before</h3>
-                    <img id="beforeImage" src="" alt="Original Preview" class="max-w-full h-auto rounded shadow-sm mx-auto">
+        <!-- The Studio Difference Section -->
+        <section
+          class="py-32 px-8 bg-surface w-full flex items-center justify-center"
+        >
+          <div
+            class="max-w-7xl w-full grid grid-cols-1 md:grid-cols-2 gap-16 md:gap-24 items-center"
+          >
+            <!-- Left Content -->
+            <div class="flex flex-col items-start gap-6 feature-item">
+              <div
+                class="text-[9px] font-bold tracking-[0.2em] uppercase text-secondary"
+              >
+                Precision Engine
+              </div>
+              <h2
+                class="text-5xl md:text-6xl font-headline font-bold text-primary leading-tight"
+              >
+                The Studio<br />Difference
+              </h2>
+              <p class="text-secondary leading-relaxed font-body text-lg">
+                We don't just apply filters. We redefine light. See how our
+                bespoke processing engine brings depth, texture, and soul back
+                into digital captures.
+              </p>
+              <button
+                class="mt-4 px-6 py-3 border border-outline-variant rounded hover:bg-surface-container-lowest transition-colors font-bold text-sm text-primary group"
+              >
+                Explore Processing Engine
+              </button>
+            </div>
+
+            <!-- Right Slider -->
+            <div
+              class="relative w-full aspect-square md:aspect-[4/5] rounded-xl overflow-hidden shadow-2xl bg-slate-900 feature-item select-none"
+              id="landing-slider-container"
+            >
+              <!-- Before Image (Original) -->
+              <img
+                class="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                src="https://images.unsplash.com/photo-1542038784456-1ea8e935640e?q=80&w=2000&auto=format&fit=crop"
+                alt="Original"
+                loading="lazy"
+              />
+              <div
+                class="absolute bottom-6 left-6 bg-primary text-on-primary text-[9px] font-extrabold tracking-[0.2em] px-3 py-1 rounded shadow-xl uppercase z-10"
+              >
+                Original
+              </div>
+
+              <!-- After Image Container (Processed) -->
+              <div
+                class="absolute inset-0 w-full h-full overflow-hidden border-l-[1.5px] border-white/80 z-20"
+                id="landing-slider-clip"
+                style="width: 50%; left: 50%"
+              >
+                <img
+                  class="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                  style="
+                    filter: contrast(1.2) saturation(0.2) sepia(0.3);
+                    max-width: none;
+                    width: 200%;
+                    margin-left: -100%;
+                  "
+                  id="landing-slider-processed-img"
+                  src="https://images.unsplash.com/photo-1542038784456-1ea8e935640e?q=80&w=2000&auto=format&fit=crop"
+                  alt="Processed"
+                  loading="lazy"
+                />
+                <div
+                  class="absolute bottom-6 right-6 bg-primary text-on-primary text-[9px] font-extrabold tracking-[0.2em] px-3 py-1 rounded shadow-xl uppercase z-10"
+                  style="right: auto; left: calc(50% + 1.5rem)"
+                  id="landing-slider-processed-badge"
+                >
+                  Processed
                 </div>
-                <div class="text-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                    <h3 class="text-lg font-semibold text-blue-600 mb-4">After</h3>
-                    <img id="afterImage" src="" alt="Filtered Result" class="max-w-full h-auto rounded shadow-sm mx-auto">
+              </div>
+
+              <!-- Handle -->
+              <div
+                class="absolute top-0 bottom-0 flex items-center justify-center -translate-x-1/2 cursor-ew-resize touch-none z-30"
+                id="landing-slider-handle"
+                style="left: 50%"
+              >
+                <div
+                  class="w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-lg border border-white/20"
+                >
+                  <i
+                    data-lucide="chevrons-left-right"
+                    class="w-4 h-4 text-white"
+                  ></i>
                 </div>
+              </div>
             </div>
+          </div>
         </section>
 
-        <!-- Section: Filters & Controls -->
-        <section id="controls-section" class="hidden space-y-6">
-            <!-- Filter buttons will be rendered here by ui.js -->
-            <div id="filterList" class="flex flex-wrap gap-2 justify-center"></div>
-            
-            <!-- Intensity Slider -->
-            <div id="intensityBox" class="hidden max-w-md mx-auto bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <label for="intensity" class="block text-sm font-medium text-gray-700 mb-2">Mức độ (Intensity):</label>
-                <input type="range" id="intensity" min="0" max="10" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+        <!-- Features Grid -->
+        <section class="py-32 bg-surface-container-lowest px-8">
+          <div
+            class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-16 md:gap-24 text-center md:text-left"
+          >
+            <div class="feature-item flex flex-col items-center md:items-start">
+              <div class="mb-6 text-primary">
+                <i data-lucide="sparkles" class="w-10 h-10"></i>
+              </div>
+              <h3 class="text-2xl font-bold mb-4">Smart Curation</h3>
+              <p class="text-secondary leading-relaxed font-body">
+                Our algorithms analyze tonal balance and composition to suggest
+                the perfect editorial profile for your capture.
+              </p>
             </div>
-
-            <div class="text-center mt-6">
-                <button id="downloadBtn" class="hidden inline-block px-8 py-3 bg-green-600 text-white font-medium rounded-lg shadow-sm hover:bg-green-700 transition">
-                    ⬇️ Tải ảnh về
-                </button>
+            <div class="feature-item flex flex-col items-center md:items-start">
+              <div class="mb-6 text-primary">
+                <i data-lucide="layers" class="w-10 h-10"></i>
+              </div>
+              <h3 class="text-2xl font-bold mb-4">Non-Destructive</h3>
+              <p class="text-secondary leading-relaxed font-body">
+                Edit with absolute freedom. Every adjustment is stored as a
+                metadata layer, preserving your original high-fidelity pixels.
+              </p>
             </div>
+            <div class="feature-item flex flex-col items-center md:items-start">
+              <div class="mb-6 text-primary">
+                <i data-lucide="cloud" class="w-10 h-10"></i>
+              </div>
+              <h3 class="text-2xl font-bold mb-4">Cloud Sync</h3>
+              <p class="text-secondary leading-relaxed font-body">
+                Begin on desktop, refine on mobile. Your studio workspace is
+                synchronized in real-time across all your creative devices.
+              </p>
+            </div>
+          </div>
         </section>
-    </main>
+      </main>
 
-    <footer class="bg-gray-800 text-white text-center p-4 mt-auto">
-        <p class="text-sm text-gray-400">© 2026 Image Filter Studio</p>
-    </footer>
+      <footer
+        class="bg-[#f9f9f7] w-full border-t border-[#e2e3e1] flex flex-col md:flex-row justify-between items-center px-8 py-12"
+      >
+        <div
+          class="flex flex-col items-center md:items-start gap-4 mb-8 md:mb-0"
+        >
+          <div class="font-serif text-xl font-bold text-black tracking-tighter">
+            Image Filter Studio
+          </div>
+          <p
+            class="font-sans text-xs tracking-widest uppercase text-neutral-500"
+          >
+            © 2024 Editorial Studio. All rights reserved.
+          </p>
+        </div>
+      </footer>
+    </div>
 
+    <!-- EDITOR VIEW -->
+    <div
+      id="editor-view"
+      class="hidden w-full h-screen flex flex-col bg-surface overflow-hidden"
+    >
+      <!-- Editor Header -->
+      <header
+        class="h-16 shrink-0 z-50 flex justify-between items-center px-6 py-3 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-100"
+      >
+        <div class="flex items-center gap-6">
+          <button
+            id="btn-back-gallery"
+            class="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors duration-300"
+          >
+            <i data-lucide="arrow-left" class="w-5 h-5"></i>
+            <span
+              class="text-[11px] uppercase tracking-[0.2em] font-bold font-label"
+              >Back to Gallery</span
+            >
+          </button>
+          <div class="h-4 w-[1px] bg-outline-variant/30"></div>
+          <span
+            class="text-2xl font-headline font-bold text-black tracking-tighter"
+            >Image Filter Studio</span
+          >
+        </div>
+        <div class="flex items-center gap-4">
+          <div
+            class="flex items-center bg-surface-container rounded-lg p-1"
+            id="undo-redo-container"
+          >
+            <button
+              class="p-2 hover:bg-slate-50 rounded transition-all text-slate-500 active:opacity-70 active:scale-95"
+              disabled
+            >
+              <i data-lucide="undo" class="w-5 h-5"></i>
+            </button>
+            <button
+              class="p-2 hover:bg-slate-50 rounded transition-all text-slate-500 active:opacity-70 active:scale-95"
+              disabled
+            >
+              <i data-lucide="redo" class="w-5 h-5"></i>
+            </button>
+          </div>
+          <button
+            id="btn-download"
+            class="px-6 py-2 bg-primary text-on-primary font-bold text-sm rounded-lg hover:opacity-90 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled
+          >
+            Download
+          </button>
+        </div>
+      </header>
+
+      <div class="flex flex-1 overflow-hidden relative">
+        <!-- Central Workspace -->
+        <section
+          class="flex-1 relative overflow-hidden bg-surface-container-low canvas-bg flex items-center justify-center p-8"
+        >
+          <!-- Toggle Button - Top Left relative to workspace (Hidden on Empty State) -->
+          <div
+            id="compare-toggle-container"
+            class="absolute top-8 left-8 z-30 hidden"
+          >
+            <button
+              id="btn-toggle-compare"
+              class="group flex items-center gap-3 bg-white shadow-lg border border-slate-100 px-5 py-3 rounded-full hover:bg-slate-50 transition-all active:scale-95"
+            >
+              <div class="w-5 h-5 relative flex items-center justify-center">
+                <i
+                  id="compare-icon-show"
+                  data-lucide="layers"
+                  class="text-slate-900 w-5 h-5"
+                ></i>
+                <div
+                  id="compare-icon-hide"
+                  class="text-white w-5 h-5 hidden relative"
+                >
+                  <i data-lucide="layers" class="w-full h-full"></i>
+                  <!-- Line that crosses the icon (Slash) -->
+                  <div
+                    class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[140%] h-[1.5px] bg-white -rotate-45 shadow-[0_0_2px_rgba(0,0,0,0.5)]"
+                  ></div>
+                </div>
+              </div>
+              <span
+                id="compare-text"
+                class="text-[11px] font-bold tracking-[0.1em] uppercase text-slate-900"
+                >Show Origin</span
+              >
+            </button>
+          </div>
+
+          <!-- Active Workspace Content -->
+          <div
+            id="workspace-content"
+            class="flex items-center justify-center gap-4 w-full h-full max-w-6xl mx-auto"
+          >
+            <!-- 1. EMPTY STATE -->
+            <label
+              id="empty-state-dropzone"
+              for="file-upload"
+              class="w-full max-w-xl aspect-[4/3] sm:aspect-video border-2 border-dashed border-slate-200 rounded-3xl bg-white/50 flex flex-col items-center justify-center gap-4 group cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-all duration-300"
+            >
+              <div
+                class="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:scale-110 group-hover:text-slate-900 transition-all duration-300"
+              >
+                <i data-lucide="cloud-upload" class="w-8 h-8"></i>
+              </div>
+              <div class="text-center px-6">
+                <h1
+                  class="text-2xl font-headline font-bold text-slate-900 mb-1"
+                >
+                  Drop your image here
+                </h1>
+                <h2 class="text-sm text-slate-400 font-medium tracking-tight">
+                  or click to browse from computer
+                </h2>
+              </div>
+              <input
+                class="hidden"
+                id="file-upload"
+                type="file"
+                accept="image/*"
+              />
+            </label>
+
+            <!-- 2. IMAGE PREVIEW STATE -->
+            <div
+              id="image-viewer-container"
+              class="hidden flex flex-col md:flex-row items-center justify-center gap-4 w-full h-full pane-transition max-h-[70vh]"
+            >
+              <!-- Origin Pane (Hidden initially) -->
+              <div
+                id="origin-pane"
+                class="hidden opacity-0 -translate-x-8 flex-1 h-full relative bg-white shadow-2xl rounded-sm p-1 border border-slate-200 overflow-hidden pane-transition transition-all duration-500"
+              >
+                <div
+                  class="relative w-full h-full flex items-center justify-center overflow-hidden"
+                >
+                  <img
+                    id="origin-image"
+                    class="max-h-full max-w-full block object-contain"
+                    src=""
+                  />
+                  <div
+                    class="absolute top-4 left-4 bg-slate-900 text-white text-[10px] font-extrabold tracking-[0.2em] px-4 py-2 rounded shadow-xl border border-slate-800 uppercase z-10"
+                  >
+                    Original
+                  </div>
+                </div>
+              </div>
+
+              <!-- Processed Pane -->
+              <div
+                id="processed-pane"
+                class="flex-1 pane-transition h-full relative bg-white shadow-2xl rounded-sm p-1 overflow-hidden shrink-0 transition-all duration-500"
+              >
+                <div
+                  class="relative w-full h-full flex items-center justify-center overflow-hidden bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAOklEQVQYV2N89erVfwYgIBgVQA2AIf///x/FSxNnz57FqxEEsXoIQx6HBrJaA0o0kBWjqC/RaCAwAADqQyC/U3vjRAAAAABJRU5ErkJggg==')]"
+                >
+                  <img
+                    id="processed-image"
+                    class="max-h-full max-w-full block object-contain transition-all duration-300"
+                    src=""
+                  />
+                  <div
+                    id="processed-badge"
+                    class="hidden absolute top-4 right-4 bg-slate-900 text-white text-[10px] font-extrabold tracking-[0.2em] px-4 py-2 rounded shadow-xl border border-slate-800 uppercase z-10"
+                  >
+                    Processed
+                  </div>
+
+                  <!-- Editor Spinner Overlay -->
+                  <div
+                    id="editor-loading-overlay"
+                    class="absolute inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300"
+                  >
+                    <i
+                      data-lucide="loader-2"
+                      class="w-12 h-12 text-white animate-spin"
+                    ></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Floating Toolbar -->
+          <div
+            class="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 p-2 bg-white/95 backdrop-blur-md rounded-full shadow-[0_12px_40px_rgba(0,0,0,0.08)] border border-slate-100"
+            id="floating-toolbar"
+          >
+            <button
+              class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-50 transition-colors text-slate-500 disabled:opacity-40"
+              disabled
+            >
+              <i data-lucide="zoom-out" class="w-5 h-5"></i>
+            </button>
+            <div class="px-3 border-x border-slate-100 flex items-center gap-2">
+              <span
+                class="text-[11px] font-bold font-label tracking-tight text-slate-900"
+                >100%</span
+              >
+              <i
+                id="sync-icon"
+                data-lucide="link"
+                class="w-3 h-3 text-slate-400 hidden"
+              ></i>
+            </div>
+            <button
+              class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-50 transition-colors text-slate-500 disabled:opacity-40"
+              disabled
+            >
+              <i data-lucide="zoom-in" class="w-5 h-5"></i>
+            </button>
+            <div class="w-[1px] h-6 bg-slate-100 mx-1"></div>
+            <button
+              class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-50 transition-colors text-slate-500 disabled:opacity-40"
+              disabled
+            >
+              <i data-lucide="hand" class="w-5 h-5"></i>
+            </button>
+            <button
+              class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-50 transition-colors text-slate-500 disabled:opacity-40"
+              disabled
+            >
+              <i data-lucide="maximize" class="w-5 h-5"></i>
+            </button>
+          </div>
+        </section>
+
+        <!-- SideNavBar (Control Panel) -->
+        <aside
+          class="w-80 flex flex-col bg-white border-l border-slate-100 overflow-y-auto z-40 relative group shrink-0 shadow-lg"
+        >
+          <!-- Sidebar Locked Overlay -->
+          <div
+            id="sidebar-lock"
+            class="absolute inset-0 z-40 bg-white/60 backdrop-blur-[2px] flex flex-col items-center justify-center p-8 text-center transition-opacity duration-300"
+          >
+            <div
+              class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-4"
+            >
+              <i data-lucide="lock" class="w-6 h-6"></i>
+            </div>
+            <p class="text-sm font-bold text-slate-900 tracking-tight">
+              Upload an image to unlock editing tools.
+            </p>
+          </div>
+
+          <div
+            id="sidebar-content"
+            class="opacity-30 pointer-events-none flex flex-col h-full transition-opacity duration-300"
+          >
+            <!-- SideNav Header -->
+            <div class="p-6 border-b border-slate-50 shrink-0">
+              <div class="flex items-center gap-4 mb-4">
+                <div
+                  class="w-10 h-10 rounded bg-slate-100 flex items-center justify-center overflow-hidden"
+                >
+                  <img
+                    id="thumb-preview"
+                    class="w-full h-full object-cover hidden"
+                    src=""
+                  />
+                  <i
+                    id="thumb-icon"
+                    data-lucide="image"
+                    class="w-5 h-5 text-slate-300"
+                  ></i>
+                </div>
+                <div>
+                  <h2
+                    class="text-lg font-headline italic text-slate-900 leading-tight"
+                  >
+                    Studio Lab
+                  </h2>
+                  <p
+                    class="text-[9px] font-bold tracking-widest text-slate-400 uppercase"
+                  >
+                    New Project
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <nav class="flex px-4 pt-4 gap-1 shrink-0 border-b border-slate-50">
+              <button
+                class="flex-1 py-3 flex flex-col items-center gap-1 rounded-t-xl bg-slate-50 text-slate-900 border-b-2 border-slate-900 transition-colors pb-4"
+              >
+                <i data-lucide="crop" class="w-5 h-5"></i>
+                <span class="text-[9px] font-bold tracking-tight uppercase"
+                  >Transform</span
+                >
+              </button>
+              <button
+                class="flex-1 py-3 flex flex-col items-center gap-1 text-slate-400 pb-4 hover:text-slate-600 transition-colors"
+              >
+                <i data-lucide="sparkles" class="w-5 h-5"></i>
+                <span class="text-[9px] font-bold tracking-tight uppercase"
+                  >Effects</span
+                >
+              </button>
+              <button
+                class="flex-1 py-3 flex flex-col items-center gap-1 text-slate-400 pb-4 hover:text-slate-600 transition-colors"
+              >
+                <i data-lucide="history" class="w-5 h-5"></i>
+                <span class="text-[9px] font-bold tracking-tight uppercase"
+                  >History</span
+                >
+              </button>
+            </nav>
+
+            <div
+              class="flex-1 bg-white p-6 flex flex-col gap-8 overflow-y-auto"
+            >
+              <!-- Filters Section Example -->
+              <section id="filters-section">
+                <div class="flex justify-between items-end mb-3">
+                  <label
+                    class="text-[9px] font-bold tracking-widest text-slate-400 uppercase block"
+                    >Intensity</label
+                  >
+                  <span
+                    class="text-[10px] font-bold text-slate-900"
+                    id="intensity-val"
+                    >100</span
+                  >
+                </div>
+                <input
+                  id="intensity-slider"
+                  class="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-slate-900 mb-6"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="100"
+                />
+
+                <label
+                  class="text-[9px] font-bold tracking-widest text-slate-400 uppercase mb-4 block"
+                  >Filters</label
+                >
+
+                <!-- Will be populated by JS -->
+                <div
+                  id="filters-list"
+                  class="flex gap-3 overflow-x-auto pb-2 no-scrollbar w-full"
+                >
+                  <div
+                    class="flex-shrink-0 w-16 group cursor-pointer filter-option"
+                    data-filter="grayscale"
+                  >
+                    <div
+                      class="w-16 h-16 rounded-lg mb-1 border-2 border-slate-900 overflow-hidden bg-slate-200 flex items-center justify-center text-slate-400 group-hover:bg-slate-300"
+                    >
+                      <i data-lucide="image" class="w-6 h-6 grayscale"></i>
+                    </div>
+                    <p class="text-[9px] font-bold text-center text-slate-900">
+                      Grayscale
+                    </p>
+                  </div>
+                  <div
+                    class="flex-shrink-0 w-16 group cursor-pointer filter-option"
+                  >
+                    <div
+                      class="w-16 h-16 rounded-lg mb-1 border border-slate-100 overflow-hidden bg-slate-200 flex items-center justify-center text-slate-400 group-hover:bg-slate-300"
+                    >
+                      <i data-lucide="droplet" class="w-6 h-6"></i>
+                    </div>
+                    <p class="text-[9px] font-bold text-center text-slate-400">
+                      Blur
+                    </p>
+                  </div>
+                  <div
+                    class="flex-shrink-0 w-16 group cursor-pointer filter-option"
+                  >
+                    <div
+                      class="w-16 h-16 rounded-lg mb-1 border border-slate-100 overflow-hidden bg-slate-200 flex items-center justify-center text-slate-400 group-hover:bg-slate-300"
+                    >
+                      <i data-lucide="sun" class="w-6 h-6"></i>
+                    </div>
+                    <p class="text-[9px] font-bold text-center text-slate-400">
+                      Sepia
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <!-- Global Action CTA -->
+            <div class="p-6 bg-white border-t border-slate-100 shrink-0">
+              <button
+                id="btn-apply"
+                class="w-full py-3 bg-slate-900 text-white rounded-lg font-bold text-sm tracking-wide hover:opacity-90 active:translate-y-[1px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Apply Changes
+              </button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div
+      id="toast-container"
+      class="fixed top-24 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-3 pointer-events-none"
+    ></div>
+
+    <!-- Motion One & AutoAnimate Setup Script -->
+    <script src="https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.8.1/index.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/motion@11.11.13/dist/motion.js"></script>
+
+    <!-- Scripts -->
     <script src="js/api.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/app.js"></script>
-</body>
+  </body>
 </html>
