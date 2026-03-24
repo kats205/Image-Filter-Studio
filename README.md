@@ -8,6 +8,17 @@
 - **Core Concept:** Web-based image editing via RESTful APIs.
 - **Goal:** To bridge the gap between classic GDI graphics theories and modern web-based API implementations.
 
+### 🏁 Start Guide
+
+**Backend (`backend/`):**
+1. Ensure .NET 8 SDK and SQL Server LocalDB are installed.
+2. In the `backend` folder, apply database migrations: `dotnet ef database update` (Requires `dotnet-ef` global tool).
+3. Start the API server: `dotnet run`
+
+**Frontend (`frontend/`):**
+1. Navigate to the `frontend` folder.
+2. Start any static file server, for example: `python -m http.server 5500` or open with VS Code Live Server on port 5500.
+
 ## 🛠️ Tech Stack
 
 ### Backend

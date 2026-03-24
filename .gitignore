@@ -77,3 +77,6 @@ ANTIGRAVITY.md
 
 # Agent
 .agent/
+
+#properties
+appsetting.Development.json
