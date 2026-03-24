@@ -126,7 +126,22 @@
         pointer-events: none;
       }
 
-      /* NO HOVER EXPANSION: Keeping stack static as requested */
+      /* Grayclay Effect Definition */
+      .filter-grayclay {
+        filter: grayscale(1) contrast(1.15) brightness(1.05) saturate(0.9);
+        transition: filter 0.3s ease;
+      }
+
+      /* View Transitions */
+      .view-transition {
+        transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .view-hidden {
+        opacity: 0 !important;
+        transform: translateY(12px) scale(0.99);
+        pointer-events: none;
+        overflow: hidden;
+      }
     </style>
 
     <!-- Lucide Icons -->
@@ -136,7 +151,7 @@
     class="bg-surface text-on-surface selection:bg-primary selection:text-on-primary overflow-x-hidden"
   >
     <!-- LANDING VIEW -->
-    <div id="landing-view" class="w-full">
+    <div id="landing-view" class="w-full view-transition">
       <header
         class="bg-[#f9f9f7] flex justify-between items-center w-full px-8 py-6 max-w-none fixed top-0 z-50 border-b relative"
         style="border-color: #e4e4e0"
@@ -239,6 +254,44 @@
           </div>
         </section>
 
+        <!-- Features Grid -->
+        <section class="py-32 bg-surface-container-lowest px-8">
+          <div
+            class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-16 md:gap-24 text-center md:text-left"
+          >
+            <div class="feature-item flex flex-col items-center md:items-start">
+              <div class="mb-6 text-primary">
+                <i data-lucide="sparkles" class="w-10 h-10"></i>
+              </div>
+              <h3 class="text-2xl font-bold mb-4">Smart Curation</h3>
+              <p class="text-secondary leading-relaxed font-body">
+                Our algorithms analyze tonal balance and composition to suggest
+                the perfect editorial profile for your capture.
+              </p>
+            </div>
+            <div class="feature-item flex flex-col items-center md:items-start">
+              <div class="mb-6 text-primary">
+                <i data-lucide="layers" class="w-10 h-10"></i>
+              </div>
+              <h3 class="text-2xl font-bold mb-4">Non-Destructive</h3>
+              <p class="text-secondary leading-relaxed font-body">
+                Edit with absolute freedom. Every adjustment is stored as a
+                metadata layer, preserving your original high-fidelity pixels.
+              </p>
+            </div>
+            <div class="feature-item flex flex-col items-center md:items-start">
+              <div class="mb-6 text-primary">
+                <i data-lucide="cloud" class="w-10 h-10"></i>
+              </div>
+              <h3 class="text-2xl font-bold mb-4">Cloud Sync</h3>
+              <p class="text-secondary leading-relaxed font-body">
+                Begin on desktop, refine on mobile. Your studio workspace is
+                synchronized in real-time across all your creative devices.
+              </p>
+            </div>
+          </div>
+        </section>
+
         <!-- The Studio Difference Section -->
         <section
           class="py-32 px-8 bg-surface w-full flex items-center justify-center"
@@ -283,21 +336,21 @@
                 loading="lazy"
               />
               <div
-                class="absolute bottom-6 left-6 bg-primary text-on-primary text-[9px] font-extrabold tracking-[0.2em] px-3 py-1 rounded shadow-xl uppercase z-10"
+                id="landing-slider-original-badge"
+                class="absolute bottom-6 left-6 bg-primary text-on-primary text-[9px] font-extrabold tracking-[0.2em] px-3 py-1 rounded shadow-xl uppercase z-20 transition-opacity duration-300"
               >
                 Original
               </div>
 
               <!-- After Image Container (Processed) -->
               <div
-                class="absolute inset-0 w-full h-full overflow-hidden border-l-[1.5px] border-white/80 z-20"
+                class="absolute inset-0 w-full h-full overflow-hidden border-l-[1.5px] border-white/80 z-10"
                 id="landing-slider-clip"
                 style="width: 50%; left: 50%"
               >
                 <img
-                  class="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                  class="absolute inset-0 w-full h-full object-cover pointer-events-none filter-grayclay"
                   style="
-                    filter: contrast(1.2) saturation(0.2) sepia(0.3);
                     max-width: none;
                     width: 200%;
                     margin-left: -100%;
@@ -307,27 +360,28 @@
                   alt="Processed"
                   loading="lazy"
                 />
-                <div
-                  class="absolute bottom-6 right-6 bg-primary text-on-primary text-[9px] font-extrabold tracking-[0.2em] px-3 py-1 rounded shadow-xl uppercase z-10"
-                  style="right: auto; left: calc(50% + 1.5rem)"
-                  id="landing-slider-processed-badge"
-                >
-                  Processed
-                </div>
+              </div>
+
+              <!-- Processed Badge (Fixed Position) -->
+              <div
+                class="absolute bottom-6 right-6 bg-primary text-on-primary text-[9px] font-extrabold tracking-[0.2em] px-3 py-1 rounded shadow-xl uppercase z-20 transition-opacity duration-300"
+                id="landing-slider-processed-badge"
+              >
+                Processed
               </div>
 
               <!-- Handle -->
               <div
-                class="absolute top-0 bottom-0 flex items-center justify-center -translate-x-1/2 cursor-ew-resize touch-none z-30"
+                class="absolute top-0 bottom-0 flex items-center justify-center -translate-x-1/2 cursor-ew-resize touch-none z-30 group"
                 id="landing-slider-handle"
                 style="left: 50%"
               >
                 <div
-                  class="w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-lg border border-white/20"
+                  class="w-10 h-10 bg-primary rounded-full flex items-center justify-center shadow-2xl border border-white/20 transition-all duration-300 group-hover:scale-125 group-hover:shadow-[0_0_20px_rgba(0,0,0,0.4)] group-active:scale-110 group-active:brightness-125"
                 >
                   <i
                     data-lucide="chevrons-left-right"
-                    class="w-4 h-4 text-white"
+                    class="w-5 h-5 text-white"
                   ></i>
                 </div>
               </div>
@@ -335,43 +389,7 @@
           </div>
         </section>
 
-        <!-- Features Grid -->
-        <section class="py-32 bg-surface-container-lowest px-8">
-          <div
-            class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-16 md:gap-24 text-center md:text-left"
-          >
-            <div class="feature-item flex flex-col items-center md:items-start">
-              <div class="mb-6 text-primary">
-                <i data-lucide="sparkles" class="w-10 h-10"></i>
-              </div>
-              <h3 class="text-2xl font-bold mb-4">Smart Curation</h3>
-              <p class="text-secondary leading-relaxed font-body">
-                Our algorithms analyze tonal balance and composition to suggest
-                the perfect editorial profile for your capture.
-              </p>
-            </div>
-            <div class="feature-item flex flex-col items-center md:items-start">
-              <div class="mb-6 text-primary">
-                <i data-lucide="layers" class="w-10 h-10"></i>
-              </div>
-              <h3 class="text-2xl font-bold mb-4">Non-Destructive</h3>
-              <p class="text-secondary leading-relaxed font-body">
-                Edit with absolute freedom. Every adjustment is stored as a
-                metadata layer, preserving your original high-fidelity pixels.
-              </p>
-            </div>
-            <div class="feature-item flex flex-col items-center md:items-start">
-              <div class="mb-6 text-primary">
-                <i data-lucide="cloud" class="w-10 h-10"></i>
-              </div>
-              <h3 class="text-2xl font-bold mb-4">Cloud Sync</h3>
-              <p class="text-secondary leading-relaxed font-body">
-                Begin on desktop, refine on mobile. Your studio workspace is
-                synchronized in real-time across all your creative devices.
-              </p>
-            </div>
-          </div>
-        </section>
+        
       </main>
 
       <footer
@@ -395,7 +413,7 @@
     <!-- EDITOR VIEW -->
     <div
       id="editor-view"
-      class="hidden w-full h-screen flex flex-col bg-surface overflow-hidden"
+      class="hidden view-hidden view-transition w-full h-screen flex flex-col bg-surface overflow-hidden"
     >
       <!-- Editor Header -->
       <header
@@ -420,20 +438,21 @@
         </div>
         <div class="flex items-center gap-4">
           <div
-            class="flex items-center bg-surface-container rounded-lg p-1"
+            class="flex items-center bg-slate-100/50 rounded-xl p-1 gap-1 border border-slate-100"
             id="undo-redo-container"
           >
             <button
-              class="p-2 hover:bg-slate-50 rounded transition-all text-slate-500 active:opacity-70 active:scale-95"
-              disabled
+              id="btn-undo"
+              class="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              <i data-lucide="undo" class="w-5 h-5"></i>
+              <i data-lucide="undo-2" class="w-4 h-4"></i>
             </button>
             <button
-              class="p-2 hover:bg-slate-50 rounded transition-all text-slate-500 active:opacity-70 active:scale-95"
+              id="btn-redo"
+              class="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed"
               disabled
             >
-              <i data-lucide="redo" class="w-5 h-5"></i>
+              <i data-lucide="redo-2" class="w-4 h-4"></i>
             </button>
           </div>
           <button
@@ -449,8 +468,17 @@
       <div class="flex flex-1 overflow-hidden relative">
         <!-- Central Workspace -->
         <section
-          class="flex-1 relative overflow-hidden bg-surface-container-low canvas-bg flex items-center justify-center p-8"
+          id="editor-workspace"
+          class="flex-1 relative overflow-hidden bg-surface-container-low canvas-bg flex items-center justify-center p-8 transition-all duration-500 ease-in-out"
         >
+          <!-- Sidebar Toggle Button (Floating) -->
+          <button
+            id="btn-toggle-sidebar"
+            class="absolute top-1/2 -translate-y-1/2 right-4 z-[60] w-8 h-12 bg-white border border-slate-100 shadow-xl rounded-full flex items-center justify-center text-slate-400 hover:text-slate-900 hover:w-10 transition-all duration-300 group"
+          >
+            <i id="sidebar-toggle-icon" data-lucide="chevron-right" class="w-5 h-5" style="transition: transform 0.4s cubic-bezier(0.4,0,0.2,1);"></i>
+          </button>
+
           <!-- Toggle Button - Top Left relative to workspace (Hidden on Empty State) -->
           <div
             id="compare-toggle-container"
@@ -538,7 +566,7 @@
                     src=""
                   />
                   <div
-                    class="absolute top-4 left-4 bg-slate-900 text-white text-[10px] font-extrabold tracking-[0.2em] px-4 py-2 rounded shadow-xl border border-slate-800 uppercase z-10"
+                    class="absolute top-4 left-4 bg-slate-900 text-white text-[10px] font-extrabold tracking-[0.2em] px-4 py-2 rounded shadow-xl border border-slate-800 uppercase z-10 transition-opacity duration-500"
                   >
                     Original
                   </div>
@@ -560,7 +588,7 @@
                   />
                   <div
                     id="processed-badge"
-                    class="hidden absolute top-4 right-4 bg-slate-900 text-white text-[10px] font-extrabold tracking-[0.2em] px-4 py-2 rounded shadow-xl border border-slate-800 uppercase z-10"
+                    class="hidden absolute top-4 right-4 bg-slate-900 text-white text-[10px] font-extrabold tracking-[0.2em] px-4 py-2 rounded shadow-xl border border-slate-800 uppercase z-10 opacity-0 transition-opacity duration-500"
                   >
                     Processed
                   </div>
@@ -580,53 +608,114 @@
             </div>
           </div>
 
-          <!-- Floating Toolbar -->
+          <!-- Floating Toolbar (High-Fidelity Interaction Controls) -->
           <div
-            class="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 p-2 bg-white/95 backdrop-blur-md rounded-full shadow-[0_12px_40px_rgba(0,0,0,0.08)] border border-slate-100"
+            class="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center p-1.5 bg-white/95 backdrop-blur-md rounded-full shadow-[0_12px_44px_rgba(0,0,0,0.1)] border border-slate-100 z-50 transition-all duration-300"
             id="floating-toolbar"
           >
-            <button
-              class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-50 transition-colors text-slate-500 disabled:opacity-40"
-              disabled
-            >
-              <i data-lucide="zoom-out" class="w-5 h-5"></i>
-            </button>
-            <div class="px-3 border-x border-slate-100 flex items-center gap-2">
-              <span
-                class="text-[11px] font-bold font-label tracking-tight text-slate-900"
-                >100%</span
-              >
-              <i
-                id="sync-icon"
-                data-lucide="link"
-                class="w-3 h-3 text-slate-400 hidden"
-              ></i>
+            <!-- Zoom Controls Group -->
+            <div class="flex items-center gap-1">
+              <div class="relative group/tooltip">
+                <button
+                  id="btn-zoom-out"
+                  class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-900 active:scale-90"
+                >
+                  <i data-lucide="minus-circle" class="w-4.5 h-4.5"></i>
+                </button>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3.5 px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 transform translate-y-1.5 group-hover/tooltip:translate-y-0 shadow-xl whitespace-nowrap z-[100]">
+                  Zoom Out
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-slate-900"></div>
+                </div>
+              </div>
+              
+              <div class="px-4 min-w-[75px] text-center border-x border-slate-100/60 flex items-center justify-center gap-1.5 cursor-default relative group/tooltip">
+                <span id="zoom-level-text" class="text-[11px] font-extrabold font-label tracking-tight text-slate-900">100%</span>
+                <i id="sync-icon" data-lucide="link-2" class="w-3 h-3 text-slate-400 hidden"></i>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3.5 px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 transform translate-y-1.5 group-hover/tooltip:translate-y-0 shadow-xl whitespace-nowrap z-[100]">
+                  Zoom Level
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-slate-900"></div>
+                </div>
+              </div>
+
+              <div class="relative group/tooltip">
+                <button
+                  id="btn-zoom-in"
+                  class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-900 active:scale-90"
+                >
+                  <i data-lucide="plus-circle" class="w-4.5 h-4.5"></i>
+                </button>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3.5 px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 transform translate-y-1.5 group-hover/tooltip:translate-y-0 shadow-xl whitespace-nowrap z-[100]">
+                  Zoom In
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-slate-900"></div>
+                </div>
+              </div>
             </div>
-            <button
-              class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-50 transition-colors text-slate-500 disabled:opacity-40"
-              disabled
-            >
-              <i data-lucide="zoom-in" class="w-5 h-5"></i>
-            </button>
-            <div class="w-[1px] h-6 bg-slate-100 mx-1"></div>
-            <button
-              class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-50 transition-colors text-slate-500 disabled:opacity-40"
-              disabled
-            >
-              <i data-lucide="hand" class="w-5 h-5"></i>
-            </button>
-            <button
-              class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-50 transition-colors text-slate-500 disabled:opacity-40"
-              disabled
-            >
-              <i data-lucide="maximize" class="w-5 h-5"></i>
-            </button>
+
+            <div class="w-[1px] h-5 bg-slate-100/80 mx-2.5"></div>
+
+            <!-- Interaction Modes Group -->
+            <div class="flex items-center gap-1.5">
+              <!-- Select Tool -->
+              <div class="relative group/tooltip">
+                <button
+                  id="btn-select-tool"
+                  class="w-9 h-9 flex items-center justify-center rounded-full transition-all active:scale-90"
+                >
+                  <i data-lucide="mouse-pointer-2" class="w-4.5 h-4.5"></i>
+                </button>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3.5 px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 transform translate-y-1.5 group-hover/tooltip:translate-y-0 shadow-xl whitespace-nowrap z-[100]">
+                  Select - V
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-slate-900"></div>
+                </div>
+              </div>
+
+              <!-- Hand/Pan Tool -->
+              <div class="relative group/tooltip">
+                <button
+                  id="btn-hand-tool"
+                  class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-900 active:scale-90"
+                >
+                  <i data-lucide="hand" class="w-4.5 h-4.5"></i>
+                </button>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3.5 px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 transform translate-y-1.5 group-hover/tooltip:translate-y-0 shadow-xl whitespace-nowrap z-[100]">
+                  Pan - H
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-slate-900"></div>
+                </div>
+              </div>
+
+              <div class="relative group/tooltip">
+                <button
+                  id="btn-fit-screen"
+                  class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-900 active:scale-90"
+                >
+                  <i data-lucide="maximize-2" class="w-4.5 h-4.5"></i>
+                </button>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3.5 px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 transform translate-y-1.5 group-hover/tooltip:translate-y-0 shadow-xl whitespace-nowrap z-[100]">
+                  Fit to Screen
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-slate-900"></div>
+                </div>
+              </div>
+
+              <div class="relative group/tooltip">
+                <button
+                  id="btn-fullscreen"
+                  class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-900 active:scale-90"
+                >
+                  <i data-lucide="expand" class="w-4.5 h-4.5"></i>
+                </button>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3.5 px-3 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 transform translate-y-1.5 group-hover/tooltip:translate-y-0 shadow-xl whitespace-nowrap z-[100]">
+                  Full Screen
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-slate-900"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
         <!-- SideNavBar (Control Panel) -->
         <aside
-          class="w-80 flex flex-col bg-white border-l border-slate-100 overflow-y-auto z-40 relative group shrink-0 shadow-lg"
+          id="sidebar-panel"
+          class="w-80 flex flex-col bg-white border-l border-slate-100 overflow-y-auto z-40 relative shrink-0 shadow-lg transition-all duration-500 ease-in-out"
         >
           <!-- Sidebar Locked Overlay -->
           <div
@@ -680,107 +769,151 @@
             </div>
 
             <!-- Navigation Tabs -->
-            <nav class="flex px-4 pt-4 gap-1 shrink-0 border-b border-slate-50">
-              <button
-                class="flex-1 py-3 flex flex-col items-center gap-1 rounded-t-xl bg-slate-50 text-slate-900 border-b-2 border-slate-900 transition-colors pb-4"
-              >
-                <i data-lucide="crop" class="w-5 h-5"></i>
-                <span class="text-[9px] font-bold tracking-tight uppercase"
-                  >Transform</span
-                >
+            <nav class="flex px-4 pt-4 gap-1 shrink-0 border-b border-slate-50" id="sidebar-tabs">
+              <button data-tab="transform" class="tab-btn group flex-1 py-3 flex flex-col items-center gap-1.5 rounded-t-xl bg-slate-50 text-slate-900 border-b-2 border-slate-900 transition-all pb-4 hover:text-slate-900 hover:bg-slate-50/50">
+                <i data-lucide="crop" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
+                <span class="text-[10px] font-black tracking-widest uppercase">Transform</span>
               </button>
-              <button
-                class="flex-1 py-3 flex flex-col items-center gap-1 text-slate-400 pb-4 hover:text-slate-600 transition-colors"
-              >
-                <i data-lucide="sparkles" class="w-5 h-5"></i>
-                <span class="text-[9px] font-bold tracking-tight uppercase"
-                  >Effects</span
-                >
+              <button data-tab="effects" class="tab-btn group flex-1 py-3 flex flex-col items-center gap-1.5 text-slate-400 pb-4 hover:text-slate-900 hover:bg-slate-50/50 rounded-t-xl transition-all">
+                <i data-lucide="sparkles" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
+                <span class="text-[10px] font-black tracking-widest uppercase">Effects</span>
               </button>
-              <button
-                class="flex-1 py-3 flex flex-col items-center gap-1 text-slate-400 pb-4 hover:text-slate-600 transition-colors"
-              >
-                <i data-lucide="history" class="w-5 h-5"></i>
-                <span class="text-[9px] font-bold tracking-tight uppercase"
-                  >History</span
-                >
+              <button data-tab="history" class="tab-btn group flex-1 py-3 flex flex-col items-center gap-1.5 text-slate-400 pb-4 hover:text-slate-900 hover:bg-slate-50/50 rounded-t-xl transition-all">
+                <i data-lucide="history" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
+                <span class="text-[10px] font-black tracking-widest uppercase">History</span>
               </button>
             </nav>
 
-            <div
-              class="flex-1 bg-white p-6 flex flex-col gap-8 overflow-y-auto"
-            >
-              <!-- Filters Section Example -->
-              <section id="filters-section">
-                <div class="flex justify-between items-end mb-3">
-                  <label
-                    class="text-[9px] font-bold tracking-widest text-slate-400 uppercase block"
-                    >Intensity</label
-                  >
-                  <span
-                    class="text-[10px] font-bold text-slate-900"
-                    id="intensity-val"
-                    >100</span
-                  >
-                </div>
-                <input
-                  id="intensity-slider"
-                  class="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-slate-900 mb-6"
-                  type="range"
-                  min="0"
-                  max="100"
-                  value="100"
-                />
+            <div class="flex-1 bg-white p-6 flex flex-col gap-8 overflow-y-auto" id="sidebar-tab-content">
+              <!-- 1. TRANSFORM TAB CONTENT -->
+              <div id="tab-content-transform" class="tab-pane flex flex-col gap-8">
+                <!-- Orientation Group -->
+                <section>
+                  <label class="text-[10px] font-extrabold tracking-[0.15em] text-slate-400 uppercase mb-5 block">Orientation</label>
+                  <div class="grid grid-cols-4 gap-3">
+                    <button class="flex flex-col items-center justify-center gap-2 p-3 aspect-square rounded-xl border border-slate-100 bg-white hover:bg-slate-50 hover:border-slate-200 transition-all group active:scale-95" title="Rotate 90°">
+                      <i data-lucide="rotate-cw" class="w-5 h-5 text-slate-900 group-hover:scale-110 transition-transform"></i>
+                      <span class="text-[10px] font-bold text-slate-900">90°</span>
+                    </button>
+                    <button class="flex flex-col items-center justify-center gap-2 p-3 aspect-square rounded-xl border border-slate-100 bg-white hover:bg-slate-50 hover:border-slate-200 transition-all group active:scale-95" title="Rotate 180°">
+                      <i data-lucide="rotate-ccw" class="w-5 h-5 text-slate-900 group-hover:scale-110 transition-transform"></i>
+                      <span class="text-[10px] font-bold text-slate-900">180°</span>
+                    </button>
+                    <button class="flex flex-col items-center justify-center gap-2 p-3 aspect-square rounded-xl border border-slate-100 bg-white hover:bg-slate-50 hover:border-slate-200 transition-all group active:scale-95" title="Flip Horizontal">
+                      <i data-lucide="flip-horizontal" class="w-5 h-5 text-slate-900 group-hover:scale-110 transition-transform"></i>
+                      <span class="text-[10px] font-bold text-slate-900">Horiz</span>
+                    </button>
+                    <button class="flex flex-col items-center justify-center gap-2 p-3 aspect-square rounded-xl border border-slate-100 bg-white hover:bg-slate-50 hover:border-slate-200 transition-all group active:scale-95" title="Flip Vertical">
+                      <i data-lucide="flip-vertical" class="w-5 h-5 text-slate-900 group-hover:scale-110 transition-transform"></i>
+                      <span class="text-[10px] font-bold text-slate-900">Vert</span>
+                    </button>
+                  </div>
+                </section>
 
-                <label
-                  class="text-[9px] font-bold tracking-widest text-slate-400 uppercase mb-4 block"
-                  >Filters</label
-                >
+                <!-- Crop Presets Group -->
+                <section>
+                  <label class="text-[10px] font-extrabold tracking-[0.15em] text-slate-400 uppercase mb-5 block">Crop Presets</label>
+                  <div class="grid grid-cols-2 gap-3">
+                    <button class="py-3.5 px-4 rounded-xl border border-slate-100 bg-slate-900 text-white font-bold text-[11px] shadow-lg shadow-slate-200 hover:bg-black transition-all active:scale-[0.98]">Freeform</button>
+                    <button class="py-3.5 px-4 rounded-xl border border-slate-100 bg-white text-slate-900 font-bold text-[11px] hover:bg-slate-50 transition-all active:scale-[0.98]">Square 1:1</button>
+                    <button class="py-3.5 px-4 rounded-xl border border-slate-100 bg-white text-slate-900 font-bold text-[11px] hover:bg-slate-50 transition-all active:scale-[0.98]">Classic 4:3</button>
+                    <button class="py-3.5 px-4 rounded-xl border border-slate-100 bg-white text-slate-900 font-bold text-[11px] hover:bg-slate-50 transition-all active:scale-[0.98]">Wide 16:9</button>
+                  </div>
+                </section>
+              </div>
 
-                <!-- Will be populated by JS -->
-                <div
-                  id="filters-list"
-                  class="flex gap-3 overflow-x-auto pb-2 no-scrollbar w-full"
-                >
-                  <div
-                    class="flex-shrink-0 w-16 group cursor-pointer filter-option"
-                    data-filter="grayscale"
-                  >
-                    <div
-                      class="w-16 h-16 rounded-lg mb-1 border-2 border-slate-900 overflow-hidden bg-slate-200 flex items-center justify-center text-slate-400 group-hover:bg-slate-300"
-                    >
-                      <i data-lucide="image" class="w-6 h-6 grayscale"></i>
-                    </div>
-                    <p class="text-[9px] font-bold text-center text-slate-900">
-                      Grayscale
-                    </p>
+              <!-- 2. EFFECTS TAB CONTENT -->
+              <div id="tab-content-effects" class="tab-pane hidden flex flex-col gap-8">
+                <!-- Filters Section -->
+                <section id="filters-section">
+                  <div class="flex justify-between items-end mb-3">
+                    <label class="text-[10px] font-extrabold tracking-[0.15em] text-slate-400 uppercase block">Intensity</label>
+                    <span class="text-[10px] font-bold text-slate-900" id="intensity-val">100</span>
                   </div>
-                  <div
-                    class="flex-shrink-0 w-16 group cursor-pointer filter-option"
-                  >
-                    <div
-                      class="w-16 h-16 rounded-lg mb-1 border border-slate-100 overflow-hidden bg-slate-200 flex items-center justify-center text-slate-400 group-hover:bg-slate-300"
-                    >
-                      <i data-lucide="droplet" class="w-6 h-6"></i>
+                  <input id="intensity-slider" class="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-slate-900 mb-6" type="range" min="0" max="100" value="100" />
+                  
+                  <label class="text-[10px] font-extrabold tracking-[0.15em] text-slate-400 uppercase mb-5 block">Filters</label>
+                  <div id="filters-list" class="grid grid-cols-3 gap-y-8 gap-x-4">
+                    <!-- Grayscale -->
+                    <div class="flex flex-col items-center group cursor-pointer filter-option" data-filter="grayscale">
+                      <div class="w-full aspect-square rounded-2xl mb-3 border border-slate-100 bg-white flex items-center justify-center text-slate-400 transition-all group-hover:bg-slate-50 group-active:scale-95 overflow-hidden shadow-sm">
+                        <i data-lucide="image" class="w-7 h-7"></i>
+                      </div>
+                      <p class="text-[11px] font-bold text-center text-slate-400 tracking-tight transition-colors">Grayscale</p>
                     </div>
-                    <p class="text-[9px] font-bold text-center text-slate-400">
-                      Blur
-                    </p>
-                  </div>
-                  <div
-                    class="flex-shrink-0 w-16 group cursor-pointer filter-option"
-                  >
-                    <div
-                      class="w-16 h-16 rounded-lg mb-1 border border-slate-100 overflow-hidden bg-slate-200 flex items-center justify-center text-slate-400 group-hover:bg-slate-300"
-                    >
-                      <i data-lucide="sun" class="w-6 h-6"></i>
+                    <!-- Sepia -->
+                    <div class="flex flex-col items-center group cursor-pointer filter-option" data-filter="sepia">
+                      <div class="w-full aspect-square rounded-2xl mb-3 border border-slate-100 bg-white flex items-center justify-center text-slate-400 transition-all group-hover:bg-slate-50 group-active:scale-95 overflow-hidden shadow-sm">
+                        <i data-lucide="coffee" class="w-7 h-7"></i>
+                      </div>
+                      <p class="text-[11px] font-bold text-center text-slate-400 tracking-tight transition-colors">Sepia</p>
                     </div>
-                    <p class="text-[9px] font-bold text-center text-slate-400">
-                      Sepia
-                    </p>
+                    <!-- Invert -->
+                    <div class="flex flex-col items-center group cursor-pointer filter-option" data-filter="invert">
+                      <div class="w-full aspect-square rounded-2xl mb-3 border border-slate-100 bg-white flex items-center justify-center text-slate-400 transition-all group-hover:bg-slate-50 group-active:scale-95 overflow-hidden shadow-sm">
+                        <i data-lucide="refresh-cw" class="w-7 h-7"></i>
+                      </div>
+                      <p class="text-[11px] font-bold text-center text-slate-400 tracking-tight transition-colors">Invert</p>
+                    </div>
+                    <!-- Blur -->
+                    <div class="flex flex-col items-center group cursor-pointer filter-option" data-filter="blur">
+                      <div class="w-full aspect-square rounded-2xl mb-3 border border-slate-100 bg-white flex items-center justify-center text-slate-400 transition-all group-hover:bg-slate-50 group-active:scale-95 overflow-hidden shadow-sm">
+                        <i data-lucide="droplet" class="w-7 h-7"></i>
+                      </div>
+                      <p class="text-[11px] font-bold text-center text-slate-400 tracking-tight transition-colors">Blur</p>
+                    </div>
+                    <!-- Brightness -->
+                    <div class="flex flex-col items-center group cursor-pointer filter-option" data-filter="brightness">
+                      <div class="w-full aspect-square rounded-2xl mb-3 border border-slate-100 bg-white flex items-center justify-center text-slate-400 transition-all group-hover:bg-slate-50 group-active:scale-95 overflow-hidden shadow-sm">
+                        <i data-lucide="sun" class="w-7 h-7"></i>
+                      </div>
+                      <p class="text-[11px] font-bold text-center text-slate-400 tracking-tight transition-colors">Brightness</p>
+                    </div>
+                    <!-- Sharpen -->
+                    <div class="flex flex-col items-center group cursor-pointer filter-option" data-filter="sharpen">
+                      <div class="w-full aspect-square rounded-2xl mb-3 border border-slate-100 bg-white flex items-center justify-center text-slate-400 transition-all group-hover:bg-slate-50 group-active:scale-95 overflow-hidden shadow-sm">
+                        <i data-lucide="wand-2" class="w-7 h-7"></i>
+                      </div>
+                      <p class="text-[11px] font-bold text-center text-slate-400 tracking-tight transition-colors">Sharpen</p>
+                    </div>
                   </div>
-                </div>
-              </section>
+                </section>
+              </div>
+              
+              <!-- 3. HISTORY TAB CONTENT -->
+              <div id="tab-content-history" class="tab-pane hidden flex flex-col gap-8">
+                <!-- Timeline Section -->
+                <section class="flex-1 flex flex-col min-h-0">
+                    <label class="text-[10px] font-extrabold tracking-[0.15em] text-slate-400 uppercase mb-4 block">Step History</label>
+                    <div class="space-y-4 overflow-y-auto no-scrollbar pr-1">
+                        <!-- Current Active Step -->
+                        <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl group cursor-default">
+                             <div class="p-2 bg-slate-800 rounded-lg">
+                                <i data-lucide="sparkles" class="w-4 h-4 text-white"></i>
+                             </div>
+                             <div class="flex-1 min-w-0">
+                                <h4 class="text-[11px] font-bold text-white leading-tight">Project Ready</h4>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Baseline established</p>
+                             </div>
+                             <div class="flex flex-col items-end gap-1">
+                                <span class="bg-emerald-500/20 text-emerald-400 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tighter">Current</span>
+                             </div>
+                        </div>
+
+                        <!-- Previous Step -->
+                        <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 group opacity-70">
+                             <div class="p-2 bg-white rounded-lg shadow-sm">
+                                <i data-lucide="upload" class="w-4 h-4 text-slate-900"></i>
+                             </div>
+                             <div class="flex-1 min-w-0">
+                                <h4 class="text-[11px] font-bold text-slate-900 leading-tight">Image Uploaded</h4>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Source file received</p>
+                             </div>
+                             <i data-lucide="check" class="w-4 h-4 text-slate-300"></i>
+                        </div>
+                    </div>
+                </section>
+              </div>
             </div>
 
             <!-- Global Action CTA -->
@@ -794,6 +927,64 @@
             </div>
           </div>
         </aside>
+      </div>
+    </div>
+
+    <!-- Download Modal Overlay -->
+    <div id="download-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xl z-[200] flex items-center justify-center opacity-0 pointer-events-none transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
+      <div id="download-card" class="bg-white rounded-[40px] p-12 w-full max-w-lg shadow-[0_32px_128px_rgba(0,0,0,0.15)] border border-white/20 transform translate-y-12 scale-90 opacity-0 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] relative">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-12">
+          <div class="space-y-1">
+            <h2 class="text-3xl font-headline font-bold text-slate-900 leading-none whitespace-nowrap">Export Studio Image</h2>
+            <p class="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1">Select Output Parameters</p>
+          </div>
+          <button id="btn-close-download" class="p-3 hover:bg-slate-50 rounded-full transition-all text-slate-400 hover:text-slate-900 active:scale-90">
+             <i data-lucide="x" class="w-6 h-6"></i>
+          </button>
+        </div>
+
+        <div class="flex flex-col gap-10">
+          <!-- Format Group -->
+          <section>
+             <div class="flex items-center justify-between mb-5">
+                <label class="text-[10px] font-black tracking-[0.2em] text-slate-600 uppercase">1. Choose Format</label>
+             </div>
+             <div class="grid grid-cols-2 gap-4">
+                <button class="export-format-btn group py-5 px-4 rounded-3xl border-2 border-slate-900 bg-slate-50 text-slate-900 font-bold text-[12px] tracking-widest uppercase transition-all shadow-lg active:scale-[0.98] active:translate-y-[1px]">JPG</button>
+                <button class="export-format-btn group py-5 px-4 rounded-3xl border-2 border-slate-100 bg-white text-slate-500 font-bold text-[12px] tracking-widest uppercase hover:bg-slate-50 hover:border-slate-200 hover:text-slate-900 transition-all active:scale-[0.98] active:translate-y-[1px]">PNG</button>
+             </div>
+          </section>
+
+          <!-- Resolution Group -->
+          <section>
+             <div class="flex items-center justify-between mb-5">
+                <label class="text-[10px] font-black tracking-[0.2em] text-slate-600 uppercase">2. Output Resolution</label>
+             </div>
+             <div class="grid grid-cols-2 gap-4">
+                <button class="export-quality-btn group py-6 px-4 rounded-3xl border-2 border-slate-100 bg-white text-slate-500 font-bold text-[12px] tracking-widest uppercase hover:bg-slate-50 hover:border-slate-200 transition-all flex flex-col items-center gap-3 active:scale-[0.98] active:translate-y-[1px]">
+                    <i data-lucide="eye" class="w-5 h-5 group-hover:scale-110 transition-all"></i>
+                    <div class="flex flex-col items-center gap-1">
+                        <span class="font-black">Preview</span>
+                        <span class="text-[10px] font-bold uppercase tracking-tighter opacity-80">Quick Export (HD)</span>
+                    </div>
+                </button>
+                <button class="export-quality-btn group py-6 px-4 rounded-3xl border-2 border-slate-900 bg-slate-50 text-slate-900 font-bold text-[12px] tracking-widest uppercase transition-all shadow-lg flex flex-col items-center gap-3 active:scale-[0.98] active:translate-y-[1px]">
+                    <i data-lucide="maximize" class="w-5 h-5 group-hover:scale-110 transition-all"></i>
+                    <div class="flex flex-col items-center gap-1">
+                        <span class="font-black">Max Size</span>
+                        <span class="text-[10px] font-bold uppercase tracking-tighter opacity-80">Lossless (Super HD)</span>
+                    </div>
+                </button>
+             </div>
+          </section>
+
+          <!-- Final Action -->
+          <button id="btn-process-download" class="w-full py-6 bg-slate-900 text-white rounded-[24px] font-black text-xs uppercase tracking-[0.3em] hover:bg-black active:scale-[0.98] active:translate-y-[1px] transition-all shadow-2xl shadow-slate-300 mt-4 flex items-center justify-center gap-3 group">
+             <i data-lucide="download" class="w-4 h-4 group-hover:translate-y-0.5 transition-transform"></i>
+             Finalize & Download
+          </button>
+        </div>
       </div>
     </div>
 

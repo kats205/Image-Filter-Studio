@@ -4,20 +4,10 @@ document.addEventListener('DOMContentLoaded', () => {
         lucide.createIcons();
     }
 
-    // 2. Setup AutoAnimate for smooth DOM transitions
+    // 2. Setup AutoAnimate for dynamic UI changes (Not for page transitions)
     const workspaceContent = document.getElementById('workspace-content');
     if (workspaceContent && window.autoAnimate) {
         window.autoAnimate(workspaceContent, { duration: 300 });
-    }
-    if (window.autoAnimate) {
-        // Apply to body for SPA transitions between Landing and Editor
-        window.autoAnimate(document.body, { duration: 400 });
-        
-        // Apply to toast container
-        const toastContainer = document.getElementById('toast-container');
-        if (toastContainer) {
-            window.autoAnimate(toastContainer, { duration: 250 });
-        }
     }
 
     // -------------------------------------------------------------
@@ -100,16 +90,37 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // -------------------------------------------------------------
-    // NAVIGATION LOGIC
+    // NAVIGATION LOGIC (PAGE TRANSITIONS)
     // -------------------------------------------------------------
     function showEditor() {
-        el.landingView.classList.add('hidden');
-        el.editorView.classList.remove('hidden');
+        // Fade out landing
+        el.landingView.classList.add('view-hidden');
+        
+        // Wait for landing to start fading, then swap
+        setTimeout(() => {
+            el.landingView.classList.add('hidden');
+            el.editorView.classList.remove('hidden');
+            
+            // Trigger entrance animation
+            requestAnimationFrame(() => {
+                el.editorView.classList.remove('view-hidden');
+                if (window.lucide) window.lucide.createIcons();
+            });
+        }, 400); // 400ms is a sweet spot for switching
     }
 
     function showGallery() {
-        el.editorView.classList.add('hidden');
-        el.landingView.classList.remove('hidden');
+        // Fade out editor
+        el.editorView.classList.add('view-hidden');
+        
+        setTimeout(() => {
+            el.editorView.classList.add('hidden');
+            el.landingView.classList.remove('hidden');
+            
+            requestAnimationFrame(() => {
+                el.landingView.classList.remove('view-hidden');
+            });
+        }, 400);
     }
 
     if (el.navEditorLink) {
@@ -209,10 +220,16 @@ document.addEventListener('DOMContentLoaded', () => {
             isComparing = !isComparing;
             const iconShow = document.getElementById('compare-icon-show');
             const iconHide = document.getElementById('compare-icon-hide');
+            const processedBadge = document.getElementById('processed-badge');
             
             if (isComparing) {
                 // Show Dual Pane
                 el.originPane.classList.remove('hidden');
+                if (processedBadge) {
+                    processedBadge.classList.remove('hidden');
+                    setTimeout(() => processedBadge.classList.add('opacity-100'), 20);
+                }
+                
                 // slight delay for transition effect
                 setTimeout(() => {
                     el.originPane.classList.remove('opacity-0', '-translate-x-8');
@@ -231,6 +248,11 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 // Hide Dual Pane
                 el.originPane.classList.add('opacity-0', '-translate-x-8');
+                if (processedBadge) {
+                    processedBadge.classList.remove('opacity-100');
+                    setTimeout(() => processedBadge.classList.add('hidden'), 500);
+                }
+                
                 setTimeout(() => {
                     el.originPane.classList.add('hidden');
                 }, 300); // Wait for transition
@@ -277,6 +299,263 @@ document.addEventListener('DOMContentLoaded', () => {
             );
         });
     }
-});
+
     // -------------------------------------------------------------
-    // LANDING SLIDER (THE STUDIO DIFFERENCE)
+    // LANDING SLIDER (THE STUDIO DIFFERENCE) INTERACTIVITY
+    // -------------------------------------------------------------
+    const sliderContainer = document.getElementById('landing-slider-container');
+    const sliderClip = document.getElementById('landing-slider-clip');
+    const sliderHandle = document.getElementById('landing-slider-handle');
+    const sliderBadge = document.getElementById('landing-slider-processed-badge');
+    const sliderImg = document.getElementById('landing-slider-processed-img');
+
+    if (sliderContainer && sliderClip && sliderHandle) {
+        let isDragging = false;
+        const originalBadge = document.getElementById('landing-slider-original-badge');
+
+        const updateSlider = (clientX) => {
+            const rect = sliderContainer.getBoundingClientRect();
+            if (rect.width === 0) return;
+            
+            let x = clientX - rect.left;
+            
+            // Constrain
+            if (x < 0) x = 0;
+            if (x > rect.width) x = rect.width;
+            
+            const percentage = (x / rect.width) * 100;
+            
+            // Update Clip & Handle
+            sliderClip.style.width = `${100 - percentage}%`;
+            sliderClip.style.left = `${percentage}%`;
+            sliderHandle.style.left = `${percentage}%`;
+            
+            // Keep the processed image aligned with the background original image
+            if (sliderImg) {
+                sliderImg.style.width = `${rect.width}px`;
+                sliderImg.style.marginLeft = `-${x}px`;
+            }
+            
+            // Badge visibility based on space
+            if (originalBadge) {
+                originalBadge.style.opacity = percentage < 15 ? '0' : '1';
+                originalBadge.style.pointerEvents = percentage < 15 ? 'none' : 'auto';
+            }
+            if (sliderBadge) {
+                sliderBadge.style.opacity = percentage > 85 ? '0' : '1';
+                sliderBadge.style.pointerEvents = percentage > 85 ? 'none' : 'auto';
+            }
+        };
+
+        const startDragging = (e) => {
+            isDragging = true;
+            document.body.classList.add('select-none');
+            sliderContainer.classList.add('cursor-grabbing');
+        };
+
+        const stopDragging = (e) => {
+            isDragging = false;
+            document.body.classList.remove('select-none');
+            sliderContainer.classList.remove('cursor-grabbing');
+        };
+
+        const handleMove = (e) => {
+            if (!isDragging) return;
+            const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            updateSlider(clientX);
+        };
+
+        // Event Listeners
+        sliderHandle.addEventListener('mousedown', startDragging);
+        window.addEventListener('mouseup', stopDragging);
+        window.addEventListener('mousemove', handleMove);
+
+        sliderHandle.addEventListener('touchstart', startDragging);
+        window.addEventListener('touchend', stopDragging);
+        window.addEventListener('touchmove', handleMove, { passive: false });
+
+        // Initialize at 50% on load and resize
+        const initSlider = () => {
+            const rect = sliderContainer.getBoundingClientRect();
+            if (rect.width > 0) {
+                updateSlider(rect.left + rect.width / 2);
+            }
+        };
+        
+        // Initial setup
+        setTimeout(initSlider, 300);
+        window.addEventListener('resize', initSlider);
+    }
+
+    // -------------------------------------------------------------
+    // TAB SWITCHING LOGIC (Sidebar)
+    // -------------------------------------------------------------
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabPanes = document.querySelectorAll('.tab-pane');
+
+    if (tabBtns.length > 0) {
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetTab = btn.getAttribute('data-tab');
+                
+                // Update Button Visuals
+                tabBtns.forEach(b => {
+                    b.classList.remove('bg-slate-50', 'text-slate-900', 'border-b-2', 'border-slate-900');
+                    b.classList.add('text-slate-400');
+                });
+                btn.classList.add('bg-slate-50', 'text-slate-900', 'border-b-2', 'border-slate-900');
+                btn.classList.remove('text-slate-400');
+
+                // Toggle Tab Panes
+                tabPanes.forEach(p => p.classList.add('hidden'));
+                const activePane = document.getElementById(`tab-content-${targetTab}`);
+                if (activePane) activePane.classList.remove('hidden');
+                
+                // Optional: Show toast for feedback
+                // if (window.showToast) window.showToast(`Switched to ${targetTab} tools`, 'info');
+                
+                // Refresh Lucide Icons for any newly shown content
+                if (window.lucide) window.lucide.createIcons();
+            });
+        });
+    }
+
+    // -------------------------------------------------------------
+    // SIDEBAR TOGGLE LOGIC
+    // -------------------------------------------------------------
+    const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
+    const sidebarPanel = document.getElementById('sidebar-panel');
+    const sidebarToggleIcon = document.getElementById('sidebar-toggle-icon');
+    let isSidebarCollapsed = false;
+
+    if (btnToggleSidebar && sidebarPanel) {
+        btnToggleSidebar.addEventListener('click', () => {
+            isSidebarCollapsed = !isSidebarCollapsed;
+            
+            if (isSidebarCollapsed) {
+                // Collapse (Hide Sidebar to the Right)
+                sidebarPanel.classList.remove('w-80');
+                sidebarPanel.classList.add('w-0', 'border-l-0', 'opacity-0');
+                if (sidebarToggleIcon) {
+                    sidebarToggleIcon.style.transform = 'rotate(180deg)';
+                }
+                btnToggleSidebar.classList.replace('right-4', 'right-6'); 
+            } else {
+                // Expand (Show Sidebar)
+                sidebarPanel.classList.add('w-80');
+                sidebarPanel.classList.remove('w-0', 'border-l-0', 'opacity-0');
+                if (sidebarToggleIcon) {
+                    sidebarToggleIcon.style.transform = 'rotate(0deg)';
+                }
+                btnToggleSidebar.classList.replace('right-6', 'right-4');
+            }
+        });
+    }
+
+    // -------------------------------------------------------------
+    // WORKSPACE INTERACTION LOGIC (ZOOM, PAN, TOOL SELECTION)
+    // -------------------------------------------------------------
+    const btnZoomIn = document.getElementById('btn-zoom-in');
+    const btnZoomOut = document.getElementById('btn-zoom-out');
+    const btnFitScreen = document.getElementById('btn-fit-screen');
+    const btnFullscreen = document.getElementById('btn-fullscreen');
+    const btnHandTool = document.getElementById('btn-hand-tool');
+    const btnSelectTool = document.getElementById('btn-select-tool');
+    const zoomLevelText = document.getElementById('zoom-level-text');
+    const viewerContainer = document.getElementById('image-viewer-container');
+    
+    let currentZoom = 1.0;
+    let currentTool = 'select'; // 'select' or 'pan'
+
+    function updateZoomDisplay() {
+        if (zoomLevelText) {
+            zoomLevelText.innerText = `${Math.round(currentZoom * 100)}%`;
+        }
+        if (viewerContainer) {
+            viewerContainer.style.transform = `scale(${currentZoom})`;
+            viewerContainer.style.transition = 'transform 0.3s cubic-bezier(0.2, 1, 0.3, 1)';
+        }
+    }
+
+    function setTool(tool) {
+        currentTool = tool;
+        
+        // Update Buttons UI
+        if (tool === 'select') {
+            btnSelectTool.classList.add('bg-slate-900', 'text-white');
+            btnSelectTool.classList.remove('text-slate-500', 'hover:bg-slate-50');
+            btnHandTool.classList.remove('bg-slate-900', 'text-white');
+            btnHandTool.classList.add('text-slate-500', 'hover:bg-slate-50');
+            if (viewerContainer) viewerContainer.style.cursor = 'default';
+        } else {
+            btnHandTool.classList.add('bg-slate-900', 'text-white');
+            btnHandTool.classList.remove('text-slate-500', 'hover:bg-slate-50');
+            btnSelectTool.classList.remove('bg-slate-900', 'text-white');
+            btnSelectTool.classList.add('text-slate-500', 'hover:bg-slate-50');
+            if (viewerContainer) viewerContainer.style.cursor = 'grab';
+        }
+        
+        if (window.showToast) window.showToast(`${tool.charAt(0).toUpperCase() + tool.slice(1)} tool active`);
+    }
+
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+        const key = e.key.toLowerCase();
+        // Prevent shortcuts if user is typing in an input (not currently many, but good practice)
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        if (key === 'v') setTool('select');
+        if (key === 'h') setTool('pan');
+        if (key === '+') btnZoomIn.click();
+        if (key === '-') btnZoomOut.click();
+        if (key === '0') btnFitScreen.click();
+    });
+
+    if (btnZoomIn) {
+        btnZoomIn.addEventListener('click', () => {
+            if (currentZoom < 3.0) {
+                currentZoom += 0.2;
+                updateZoomDisplay();
+            }
+        });
+    }
+
+    if (btnZoomOut) {
+        btnZoomOut.addEventListener('click', () => {
+            if (currentZoom > 0.25) {
+                currentZoom -= 0.2;
+                updateZoomDisplay();
+            }
+        });
+    }
+
+    if (btnFitScreen) {
+        btnFitScreen.addEventListener('click', () => {
+            currentZoom = 1.0;
+            updateZoomDisplay();
+        });
+    }
+
+    if (btnFullscreen) {
+        btnFullscreen.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    if (window.showToast) window.showToast("Error enabling fullscreen", "error");
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        });
+    }
+
+    if (btnSelectTool) {
+        btnSelectTool.addEventListener('click', () => setTool('select'));
+    }
+
+    if (btnHandTool) {
+        btnHandTool.addEventListener('click', () => setTool('pan'));
+    }
+
+    // Initial tool state
+    setTool('select');
+});
