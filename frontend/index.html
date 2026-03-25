@@ -166,6 +166,26 @@
         user-select: auto !important;
         -webkit-user-select: auto !important;
       }
+
+      /* Unified Sidebar Tool Buttons */
+      .editor-tool-btn {
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .editor-tool-btn:hover {
+        transform: translateY(-2px);
+        background-color: #f8fafc; /* bg-slate-50 */
+        border-color: #cbd5e1; /* border-slate-300 */
+        color: #0f172a; /* text-slate-900 */
+      }
+      .editor-tool-btn:active {
+        transform: scale(0.96) translateY(0);
+      }
+      .editor-tool-btn.active {
+        background-color: #0f172a !important; /* bg-slate-900 */
+        color: white !important;
+        border-color: #0f172a !important;
+        box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); /* shadow-xl */
+      }
     </style>
   </head>
   <body
@@ -896,53 +916,21 @@
                     >Orientation</label
                   >
                   <div class="grid grid-cols-4 gap-3">
-                    <button
-                      class="flex flex-col items-center justify-center gap-2 p-3 aspect-square rounded-xl border border-slate-100 bg-white hover:bg-slate-50 hover:border-slate-200 transition-all group active:scale-95"
-                      title="Rotate 90°"
-                    >
-                      <i
-                        data-lucide="rotate-cw"
-                        class="w-5 h-5 text-slate-900 group-hover:scale-110 transition-transform"
-                      ></i>
-                      <span class="text-[10px] font-bold text-slate-900"
-                        >90°</span
-                      >
+                    <button class="editor-tool-btn flex flex-col items-center justify-center gap-2 p-3 aspect-square rounded-xl border border-slate-100 bg-white shadow-sm" title="Rotate 90°">
+                      <i data-lucide="rotate-cw" class="w-5 h-5 transition-transform"></i>
+                      <span class="text-[10px] font-bold">90°</span>
                     </button>
-                    <button
-                      class="flex flex-col items-center justify-center gap-2 p-3 aspect-square rounded-xl border border-slate-100 bg-white hover:bg-slate-50 hover:border-slate-200 transition-all group active:scale-95"
-                      title="Rotate 180°"
-                    >
-                      <i
-                        data-lucide="rotate-ccw"
-                        class="w-5 h-5 text-slate-900 group-hover:scale-110 transition-transform"
-                      ></i>
-                      <span class="text-[10px] font-bold text-slate-900"
-                        >180°</span
-                      >
+                    <button class="editor-tool-btn flex flex-col items-center justify-center gap-2 p-3 aspect-square rounded-xl border border-slate-100 bg-white shadow-sm" title="Rotate 180°">
+                      <i data-lucide="rotate-ccw" class="w-5 h-5 transition-transform"></i>
+                      <span class="text-[10px] font-bold">180°</span>
                     </button>
-                    <button
-                      class="flex flex-col items-center justify-center gap-2 p-3 aspect-square rounded-xl border border-slate-100 bg-white hover:bg-slate-50 hover:border-slate-200 transition-all group active:scale-95"
-                      title="Flip Horizontal"
-                    >
-                      <i
-                        data-lucide="flip-horizontal"
-                        class="w-5 h-5 text-slate-900 group-hover:scale-110 transition-transform"
-                      ></i>
-                      <span class="text-[10px] font-bold text-slate-900"
-                        >Horiz</span
-                      >
+                    <button class="editor-tool-btn flex flex-col items-center justify-center gap-2 p-3 aspect-square rounded-xl border border-slate-100 bg-white shadow-sm" title="Flip Horizontal">
+                      <i data-lucide="flip-horizontal" class="w-5 h-5 transition-transform"></i>
+                      <span class="text-[10px] font-bold">Horiz</span>
                     </button>
-                    <button
-                      class="flex flex-col items-center justify-center gap-2 p-3 aspect-square rounded-xl border border-slate-100 bg-white hover:bg-slate-50 hover:border-slate-200 transition-all group active:scale-95"
-                      title="Flip Vertical"
-                    >
-                      <i
-                        data-lucide="flip-vertical"
-                        class="w-5 h-5 text-slate-900 group-hover:scale-110 transition-transform"
-                      ></i>
-                      <span class="text-[10px] font-bold text-slate-900"
-                        >Vert</span
-                      >
+                    <button class="editor-tool-btn flex flex-col items-center justify-center gap-2 p-3 aspect-square rounded-xl border border-slate-100 bg-white shadow-sm" title="Flip Vertical">
+                      <i data-lucide="flip-vertical" class="w-5 h-5 transition-transform"></i>
+                      <span class="text-[10px] font-bold">Vert</span>
                     </button>
                   </div>
                 </section>
@@ -956,25 +944,25 @@
                   <div class="grid grid-cols-2 gap-3">
                     <button
                       data-preset="freeform"
-                      class="py-3.5 px-4 rounded-xl border border-slate-100 bg-slate-900 text-white font-bold text-[11px] shadow-lg shadow-slate-200 hover:bg-black transition-all active:scale-[0.98]"
+                      class="editor-tool-btn py-3.5 px-4 rounded-xl border border-slate-100 bg-white text-slate-900 font-bold text-[11px] shadow-sm active"
                     >
                       Freeform
                     </button>
                     <button
                       data-preset="1:1"
-                      class="py-3.5 px-4 rounded-xl border border-slate-100 bg-white text-slate-900 font-bold text-[11px] hover:bg-slate-50 transition-all active:scale-[0.98]"
+                      class="editor-tool-btn py-3.5 px-4 rounded-xl border border-slate-100 bg-white text-slate-900 font-bold text-[11px] shadow-sm"
                     >
                       Square 1:1
                     </button>
                     <button
                       data-preset="4:3"
-                      class="py-3.5 px-4 rounded-xl border border-slate-100 bg-white text-slate-900 font-bold text-[11px] hover:bg-slate-50 transition-all active:scale-[0.98]"
+                      class="editor-tool-btn py-3.5 px-4 rounded-xl border border-slate-100 bg-white text-slate-900 font-bold text-[11px] shadow-sm"
                     >
                       Classic 4:3
                     </button>
                     <button
                       data-preset="16:9"
-                      class="py-3.5 px-4 rounded-xl border border-slate-100 bg-white text-slate-900 font-bold text-[11px] hover:bg-slate-50 transition-all active:scale-[0.98]"
+                      class="editor-tool-btn py-3.5 px-4 rounded-xl border border-slate-100 bg-white text-slate-900 font-bold text-[11px] shadow-sm"
                     >
                       Wide 16:9
                     </button>

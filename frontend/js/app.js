@@ -80,12 +80,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     cropPresetBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             // UI Toggle
-            cropPresetBtns.forEach(b => {
-                b.classList.remove('bg-slate-900', 'text-white', 'shadow-lg');
-                b.classList.add('bg-white', 'text-slate-900');
-            });
-            btn.classList.add('bg-slate-900', 'text-white', 'shadow-lg');
-            btn.classList.remove('bg-white', 'text-slate-900');
+            cropPresetBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
 
             // Set Global State
             const map = { 
