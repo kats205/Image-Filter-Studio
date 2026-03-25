@@ -45,3 +45,17 @@ async function downloadImage(imageId) {
     }
     return await response.blob();
 }
+
+async function cropImage(imageId, x, y, width, height) {
+    const response = await fetch(`${BASE_URL}/image/crop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageId, x, y, width, height })
+    });
+
+    if (!response.ok) {
+        throw new Error('Cắt ảnh thất bại');
+    }
+
+    return await response.blob();
+}

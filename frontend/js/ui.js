@@ -467,13 +467,33 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentZoom = 1.0;
     let currentTool = 'select'; // 'select' or 'pan'
 
-    function updateZoomDisplay() {
+    // NEW state variables for Workspace Interactivity
+    let panOffset = { x: 0, y: 0 };
+    let isPanning = false;
+    let panStart = { x: 0, y: 0 };
+
+    // Selection/Crop state
+    let isSelecting = false;
+    let selectStart = { x: 0, y: 0 };
+    let selectionDiv = null;
+    let cropRegion = null;
+    window.currentCropPreset = 'freeform'; // Share with app.js
+
+    function applyTransform() {
+        if (!el.imageViewerContainer) return;
+        
+        // Correct for scale: divide translation by zoom factor
+        const tx = panOffset.x / currentZoom;
+        const ty = panOffset.y / currentZoom;
+        
+        el.imageViewerContainer.style.transform = `scale(${currentZoom}) translate(${tx}px, ${ty}px)`;
+        el.imageViewerContainer.style.transformOrigin = 'center center';
+        
+        // Use smooth transition unless dragging
+        el.imageViewerContainer.style.transition = isPanning ? 'none' : 'transform 0.3s cubic-bezier(0.2, 1, 0.3, 1)';
+        
         if (zoomLevelText) {
             zoomLevelText.innerText = `${Math.round(currentZoom * 100)}%`;
-        }
-        if (viewerContainer) {
-            viewerContainer.style.transform = `scale(${currentZoom})`;
-            viewerContainer.style.transition = 'transform 0.3s cubic-bezier(0.2, 1, 0.3, 1)';
         }
     }
 
@@ -515,7 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnZoomIn.addEventListener('click', () => {
             if (currentZoom < 3.0) {
                 currentZoom += 0.2;
-                updateZoomDisplay();
+                applyTransform();
             }
         });
     }
@@ -524,7 +544,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnZoomOut.addEventListener('click', () => {
             if (currentZoom > 0.25) {
                 currentZoom -= 0.2;
-                updateZoomDisplay();
+                applyTransform();
             }
         });
     }
@@ -532,7 +552,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnFitScreen) {
         btnFitScreen.addEventListener('click', () => {
             currentZoom = 1.0;
-            updateZoomDisplay();
+            panOffset = { x: 0, y: 0 };
+            applyTransform();
         });
     }
 
@@ -556,6 +577,161 @@ document.addEventListener('DOMContentLoaded', () => {
         btnHandTool.addEventListener('click', () => setTool('pan'));
     }
 
-    // Initial tool state
+    // Initial tool state & apply initial transform
     setTool('select');
+    applyTransform();
+
+    // -------------------------------------------------------------
+    // PAN TOOL INTERACTION LOOP
+    // -------------------------------------------------------------
+    el.imageViewerContainer.addEventListener('mousedown', (e) => {
+        if (currentTool !== 'pan' || e.button !== 0) return;
+        e.preventDefault(); // Prevent standard image drag-and-drop
+        isPanning = true;
+        panStart = { 
+            x: e.clientX - panOffset.x, 
+            y: e.clientY - panOffset.y 
+        };
+        el.imageViewerContainer.style.cursor = 'grabbing';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isPanning || currentTool !== 'pan') return;
+        window.getSelection()?.removeAllRanges(); // Clear any accidental text selection
+        panOffset = { 
+            x: e.clientX - panStart.x, 
+            y: e.clientY - panStart.y 
+        };
+        applyTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (!isPanning) return;
+        isPanning = false;
+        if (currentTool === 'pan') {
+            el.imageViewerContainer.style.cursor = 'grab';
+        }
+    });
+
+    // -------------------------------------------------------------
+    // SELECT (CROP) TOOL INTERACTION LOOP
+    // -------------------------------------------------------------
+    // Inject Overlay
+    // Inject Overlay into the image frame (white box)
+    const cropBox = el.processedPane.querySelector('.relative.w-full.h-full');
+    const cropTarget = document.getElementById('processed-image-frame') || cropBox;
+    
+    const cropOverlay = document.createElement('div');
+    cropOverlay.id = 'crop-overlay';
+    cropOverlay.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:20;';
+    // Append to cropTarget (white frame) to clip shading to the frame
+    cropTarget.appendChild(cropOverlay);
+
+    cropTarget.addEventListener('mousedown', (e) => {
+        if (currentTool !== 'select') return;
+        
+        const imgRect = el.processedImage.getBoundingClientRect();
+        if (e.clientX < imgRect.left || e.clientX > imgRect.right || 
+            e.clientY < imgRect.top  || e.clientY > imgRect.bottom) {
+            return; 
+        }
+
+        e.preventDefault(); 
+        isSelecting = true;
+        
+        // Coordinates relative to the white frame
+        const rect = cropTarget.getBoundingClientRect();
+        selectStart = { 
+            x: e.clientX - rect.left, 
+            y: e.clientY - rect.top 
+        };
+
+        selectionDiv?.remove();
+        selectionDiv = document.createElement('div');
+        selectionDiv.style.cssText = `
+            position: absolute;
+            border: 2px dashed #fff;
+            outline: 1px solid rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.05);
+            pointer-events: none;
+            box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.55);
+            z-index: 21;
+        `;
+        cropOverlay.appendChild(selectionDiv);
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isSelecting || currentTool !== 'select' || !selectionDiv) return;
+        window.getSelection()?.removeAllRanges(); 
+        
+        const rect = cropTarget.getBoundingClientRect();
+        const imgRect = el.processedImage.getBoundingClientRect();
+        
+        // Image edges relative to frame
+        const imgL = imgRect.left - rect.left;
+        const imgT = imgRect.top - rect.top;
+        const imgR = imgRect.right - rect.left;
+        const imgB = imgRect.bottom - rect.top;
+
+        let currentX = Math.max(imgL, Math.min(imgR, e.clientX - rect.left));
+        let currentY = Math.max(imgT, Math.min(imgB, e.clientY - rect.top));
+
+        let w = currentX - selectStart.x;
+        let h = currentY - selectStart.y;
+
+        if (window.currentCropPreset === '1:1') {
+            const side = Math.max(Math.abs(w), Math.abs(h));
+            w = Math.sign(w) * side;
+            h = Math.sign(h) * side;
+        } else if (window.currentCropPreset === '4:3') {
+            const ratio = 4/3;
+            if (Math.abs(w) / Math.abs(h) > ratio) w = Math.sign(w) * Math.abs(h) * ratio;
+            else h = Math.sign(h) * Math.abs(w) / ratio;
+        } else if (window.currentCropPreset === '16:9') {
+            const ratio = 16/9;
+            if (Math.abs(w) / Math.abs(h) > ratio) w = Math.sign(w) * Math.abs(h) * ratio;
+            else h = Math.sign(h) * Math.abs(w) / ratio;
+        }
+
+        let left = w < 0 ? selectStart.x + w : selectStart.x;
+        let top = h < 0 ? selectStart.y + h : selectStart.y;
+        let width = Math.abs(w);
+        let height = Math.abs(h);
+
+        // Snap to image bounds within the frame
+        if (left < imgL) { width -= (imgL - left); left = imgL; }
+        if (top < imgT) { height -= (imgT - top); top = imgT; }
+        if (left + width > imgR) width = imgR - left;
+        if (top + height > imgB) height = imgB - top;
+        
+        selectionDiv.style.left = `${left}px`;
+        selectionDiv.style.top = `${top}px`;
+        selectionDiv.style.width = `${width}px`;
+        selectionDiv.style.height = `${height}px`;
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (!isSelecting) return;
+        isSelecting = false;
+
+        if (selectionDiv) {
+            // Store coordinates relative to the frame
+            window.cropRegion = {
+                x: parseInt(selectionDiv.style.left),
+                y: parseInt(selectionDiv.style.top),
+                w: parseInt(selectionDiv.style.width),
+                h: parseInt(selectionDiv.style.height)
+            };
+            if (window.showToast) window.showToast("Region selected - click Apply to crop", "info");
+        }
+    });
+
+    // Reset pan function exposed to window for app.js
+    window.resetWorkspace = () => {
+        panOffset = { x: 0, y: 0 };
+        currentZoom = 1.0;
+        applyTransform();
+        document.getElementById('crop-overlay')?.replaceChildren();
+        window.cropRegion = null;
+    };
 });

@@ -1,22 +1,13 @@
 document.addEventListener('DOMContentLoaded', async () => {
     // 1. Hook into UI image load
     window.onImageLoadedHook = async (file) => {
-        // Phase 1: Hiển thị Preview ảnh gốc (handled in ui.js visually)
+        // Reset Workspace UI (Zoom/Pan/Selection)
+        if (window.resetWorkspace) window.resetWorkspace();
         
         try {
             // // Phase 1: Gọi API upload file lên Backend (Comment temporaily if backend not up)
-            // console.log('Đang tải ảnh lên...');
             // const data = await uploadImage(file);
-            // console.log('Upload thành công:', data);
-            
-            // // Lưu imageId để sử dụng cho filter sau này
             // localStorage.setItem('currentImageId', data.imageId);
-            
-            // Phase 2 logic: apply default settings or load filters dynamically
-            console.log("Mock filter loading Phase 2");
-            // const filters = await getFilterList();
-            // renderFilters(filters);
-            
         } catch (error) {
             console.error(error);
         }
@@ -75,19 +66,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // -------------------------------------------------------------
-    // TRANSFORM TAB LOGIC
-    // -------------------------------------------------------------
-    const transformButtons = document.querySelectorAll('#tab-content-transform button');
-    transformButtons.forEach(btn => {
+    // 1. Orientation/Flip Buttons
+    const orientButtons = document.querySelectorAll('#tab-content-transform section:first-of-type button');
+    orientButtons.forEach(btn => {
         btn.addEventListener('click', () => {
-            const title = btn.getAttribute('title');
-            const label = btn.innerText.trim();
-            const action = title || label;
+            const action = btn.getAttribute('title');
+            if (window.showToast) window.showToast(`Action: ${action}`, 'info');
+        });
+    });
 
-            if (window.showToast) {
-                window.showToast(`Action: ${action}`, 'info');
-            }
+    // 2. Crop Presets Logic
+    const cropPresetBtns = document.querySelectorAll('#tab-content-transform section:last-of-type button');
+    cropPresetBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // UI Toggle
+            cropPresetBtns.forEach(b => {
+                b.classList.remove('bg-slate-900', 'text-white', 'shadow-lg');
+                b.classList.add('bg-white', 'text-slate-900');
+            });
+            btn.classList.add('bg-slate-900', 'text-white', 'shadow-lg');
+            btn.classList.remove('bg-white', 'text-slate-900');
+
+            // Set Global State
+            const map = { 
+                'Freeform': 'freeform', 
+                'Square 1:1': '1:1', 
+                'Classic 4:3': '4:3', 
+                'Wide 16:9': '16:9' 
+            };
+            window.currentCropPreset = map[btn.innerText.trim()] ?? 'freeform';
+            if (window.showToast) window.showToast(`Crop: ${btn.innerText.trim()} locked`, 'success');
         });
     });
 
@@ -165,6 +173,34 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     setupToggle(formatBtns);
     setupToggle(qualityBtns);
+
+    // -------------------------------------------------------------
+    // GLOBAL APPLY BUTTON (Phase 2 & 4)
+    // -------------------------------------------------------------
+    const btnApply = document.getElementById('btn-apply');
+    if (btnApply) {
+        btnApply.addEventListener('click', async () => {
+            // 1. CROP CASE
+            if (window.cropRegion) {
+                if (window.showToast) window.showToast("Applying crop...", "success");
+                
+                // Stub for Phase 4: 
+                // try { 
+                //   const blob = await cropImage(localStorage.getItem('currentImageId'), 
+                //      window.cropRegion.x, window.cropRegion.y, window.cropRegion.w, window.cropRegion.h);
+                //   processedImage.src = URL.createObjectURL(blob);
+                // } catch(e) {...}
+                
+                // Visual cleanup
+                document.getElementById('crop-overlay')?.replaceChildren();
+                window.cropRegion = null;
+                return;
+            }
+
+            // 2. FILTER CASE (Tạm thời toast)
+            if (window.showToast) window.showToast("Applying adjustments...", "success");
+        });
+    }
 
     if (btnProcessDownload) {
         btnProcessDownload.addEventListener('click', () => {
