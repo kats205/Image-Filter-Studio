@@ -190,6 +190,39 @@ public class ImageProcessingService : IImageProcessingService
         return data.ToArray();
     }
 
+    public async Task<byte[]> ApplyFlipAsync(string filePath, string direction)
+    {
+        if (!File.Exists(filePath)) throw new FileNotFoundException($"Image at path '{filePath}' not found.");
+        byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
+        using var bitmap = SKBitmap.Decode(fileBytes) ?? throw new InvalidOperationException("Failed to decode image.");
+        
+        using var surface = SKSurface.Create(new SKImageInfo(bitmap.Width, bitmap.Height));
+        using var canvas = surface.Canvas;
+
+        canvas.Clear(SKColors.Transparent);
+        if (direction.Equals("horizontal", StringComparison.OrdinalIgnoreCase))
+        {
+            canvas.Translate(bitmap.Width, 0);
+            canvas.Scale(-1, 1);
+        }
+        else if (direction.Equals("vertical", StringComparison.OrdinalIgnoreCase))
+        {
+            canvas.Translate(0, bitmap.Height);
+            canvas.Scale(1, -1);
+        }
+        else 
+        {
+            throw new ArgumentException("Invalid flip direction. Use 'horizontal' or 'vertical'.");
+        }
+
+        canvas.DrawBitmap(bitmap, 0, 0);
+        canvas.Flush();
+
+        using var snap = surface.Snapshot();
+        using var data = snap.Encode(SKEncodedImageFormat.Png, 100);
+        return data.ToArray();
+    }
+
     public async Task<byte[]> ApplyCropAsync(string filePath, int x, int y, int width, int height)
     {
         if (!File.Exists(filePath)) throw new FileNotFoundException($"Image at path '{filePath}' not found.");

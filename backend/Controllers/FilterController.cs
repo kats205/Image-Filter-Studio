@@ -11,14 +11,14 @@ public class FilterController : ControllerBase
 {
     private readonly IImageProcessingService _imageService;
     private readonly ILogger<FilterController> _logger;
-    private readonly AppDbContext _dbContext;
+    private readonly IHistoryService _historyService;
     private readonly string _uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "Storage", "uploads");
 
-    public FilterController(IImageProcessingService imageService, ILogger<FilterController> logger, AppDbContext dbContext)
+    public FilterController(IImageProcessingService imageService, ILogger<FilterController> logger, IHistoryService historyService)
     {
         _imageService = imageService;
         _logger = logger;
-        _dbContext = dbContext;
+        _historyService = historyService;
     }
 
     [HttpGet("list")]
@@ -47,14 +47,7 @@ public class FilterController : ControllerBase
         {
             var bytes = await _imageService.ApplyFilterAsync(fullPath, request.Filter, request.Intensity);
             
-            _dbContext.FilterHistories.Add(new FilterHistory
-            {
-                ImageId = request.ImageId,
-                Filter = request.Filter,
-                Intensity = request.Intensity,
-                CreatedAt = DateTime.UtcNow
-            });
-            await _dbContext.SaveChangesAsync();
+            await _historyService.AddActionAsync(request.ImageId, request.Filter, request.Intensity);
 
             return File(bytes, "image/png");
         }

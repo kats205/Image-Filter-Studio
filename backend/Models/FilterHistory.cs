@@ -8,5 +8,6 @@ public class FilterHistory
     public required string ImageId { get; set; }
     public required string Filter { get; set; }
     public float? Intensity { get; set; }
+    public string? Parameters { get; set; }
     public DateTime CreatedAt { get; set; }
 }

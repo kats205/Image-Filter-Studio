@@ -83,7 +83,7 @@ namespace backend.Controllers
         }
 
         [HttpPost("transform")]
-        public async Task<IActionResult> TransformImage([FromBody] TransformRequest request, [FromServices] IImageProcessingService imageService)
+        public async Task<IActionResult> TransformImage([FromBody] TransformRequest request, [FromServices] IImageProcessingService imageService, [FromServices] IHistoryService historyService)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.ImageId) || string.IsNullOrWhiteSpace(request.Rotation))
                 return BadRequest("Invalid request.");
@@ -97,6 +97,7 @@ namespace backend.Controllers
             try
             {
                 var bytes = await imageService.ApplyTransformAsync(filePath, request.Rotation);
+                await historyService.AddActionAsync(request.ImageId, "Transform", null, request.Rotation);
                 return File(bytes, "image/png");
             }
             catch (Exception ex)
@@ -105,8 +106,36 @@ namespace backend.Controllers
             }
         }
 
+        [HttpPost("flip")]
+        public async Task<IActionResult> FlipImage([FromBody] FlipRequest request, [FromServices] IImageProcessingService imageService, [FromServices] IHistoryService historyService)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.ImageId) || string.IsNullOrWhiteSpace(request.Direction))
+                return BadRequest("Invalid request.");
+
+            var safeImageId = Path.GetFileName(request.ImageId);
+            var filePath = Path.Combine(_uploadPath, safeImageId);
+
+            if (!System.IO.File.Exists(filePath))
+                return NotFound($"Không tìm thấy file ảnh với ID: {request.ImageId}");
+
+            try
+            {
+                var bytes = await imageService.ApplyFlipAsync(filePath, request.Direction);
+                await historyService.AddActionAsync(request.ImageId, "Flip", null, request.Direction);
+                return File(bytes, "image/png");
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
         [HttpPost("crop")]
-        public async Task<IActionResult> CropImage([FromBody] CropRequest request, [FromServices] IImageProcessingService imageService)
+        public async Task<IActionResult> CropImage([FromBody] CropRequest request, [FromServices] IImageProcessingService imageService, [FromServices] IHistoryService historyService)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.ImageId) || request.Width <= 0 || request.Height <= 0)
                 return BadRequest("Invalid crop request.");
@@ -120,6 +149,7 @@ namespace backend.Controllers
             try
             {
                 var bytes = await imageService.ApplyCropAsync(filePath, request.X, request.Y, request.Width, request.Height);
+                await historyService.AddActionAsync(request.ImageId, "Crop", null, $"{{\"x\": {request.X}, \"y\": {request.Y}, \"width\": {request.Width}, \"height\": {request.Height}}}");
                 return File(bytes, "image/png");
             }
             catch (Exception ex)
