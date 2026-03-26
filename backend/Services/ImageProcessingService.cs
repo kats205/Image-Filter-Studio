@@ -6,15 +6,14 @@ namespace backend.Services;
 
 public class ImageProcessingService : IImageProcessingService
 {
-    // Define the available filters
     private readonly List<FilterInfo> _availableFilters = new()
     {
-        new FilterInfo { Name = "Grayscale", HasSlider = false, MinIntensity = 0, MaxIntensity = 0 },
-        new FilterInfo { Name = "Sepia", HasSlider = false, MinIntensity = 0, MaxIntensity = 0 },
-        new FilterInfo { Name = "Invert", HasSlider = false, MinIntensity = 0, MaxIntensity = 0 },
-        new FilterInfo { Name = "Blur", HasSlider = true, MinIntensity = 0, MaxIntensity = 10 },
-        new FilterInfo { Name = "Brightness", HasSlider = true, MinIntensity = 0, MaxIntensity = 10 },
-        new FilterInfo { Name = "Sharpen", HasSlider = true, MinIntensity = 0, MaxIntensity = 10 }
+        new FilterInfo { Name = "Grayscale", HasSlider = true, MinIntensity = 0, MaxIntensity = 100, DefaultIntensity = 0 },
+        new FilterInfo { Name = "Sepia", HasSlider = true, MinIntensity = 0, MaxIntensity = 100, DefaultIntensity = 0 },
+        new FilterInfo { Name = "Invert", HasSlider = true, MinIntensity = 0, MaxIntensity = 100, DefaultIntensity = 0 },
+        new FilterInfo { Name = "Blur", HasSlider = true, MinIntensity = 0, MaxIntensity = 100, DefaultIntensity = 0 },
+        new FilterInfo { Name = "Brightness", HasSlider = true, MinIntensity = -100, MaxIntensity = 100, DefaultIntensity = 0 },
+        new FilterInfo { Name = "Sharpen", HasSlider = true, MinIntensity = 0, MaxIntensity = 100, DefaultIntensity = 0 }
     };
 
     public IEnumerable<FilterInfo> GetAvailableFilters()
@@ -22,12 +21,9 @@ public class ImageProcessingService : IImageProcessingService
         return _availableFilters;
     }
 
-    public async Task<byte[]> ApplyFilterAsync(string filePath, string filterName, float? intensity)
+    public async Task<byte[]> ApplyFilterAsync(byte[] sourceBytes, string filterName, float? intensity)
     {
-        if (!File.Exists(filePath))
-        {
-            throw new FileNotFoundException($"Image at path '{filePath}' not found.");
-        }
+        await Task.Yield();
 
         // Validate filter
         var filterInfo = _availableFilters.FirstOrDefault(f => f.Name.Equals(filterName, StringComparison.OrdinalIgnoreCase));
@@ -36,9 +32,7 @@ public class ImageProcessingService : IImageProcessingService
             throw new ArgumentException($"Filter '{filterName}' is not supported.");
         }
 
-        byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
-
-        using var bitmap = SKBitmap.Decode(fileBytes);
+        using var bitmap = SKBitmap.Decode(sourceBytes) ?? throw new InvalidOperationException("Failed to decode image.");
         if (bitmap == null)
         {
             throw new InvalidOperationException("Failed to decode image.");
@@ -63,56 +57,75 @@ public class ImageProcessingService : IImageProcessingService
 
     private void ApplyFilterToPaint(SKPaint paint, string filterName, float intensity)
     {
+        // Bỏ giới hạn cũ 0-100 vì có những filter như Brightness là âm
+        intensity = Math.Clamp(intensity, -100f, 100f);
+        float t = intensity / 100f; // Hệ số biểu diễn tỉ lệ (-1.0 đến 1.0 hoặc 0.0 đến 1.0 tùy min/max)
+
         switch (filterName)
         {
             case "grayscale":
+                float rR = (1 - t) + t * 0.2126f;
+                float rG = t * 0.7152f;
+                float rB = t * 0.0722f;
+
+                float gR = t * 0.2126f;
+                float gG = (1 - t) + t * 0.7152f;
+                float gB = t * 0.0722f;
+
+                float bR = t * 0.2126f;
+                float bG = t * 0.7152f;
+                float bB = (1 - t) + t * 0.0722f;
+
                 paint.ColorFilter = SKColorFilter.CreateColorMatrix(new float[]
                 {
-                    0.2126f, 0.7152f, 0.0722f, 0, 0,
-                    0.2126f, 0.7152f, 0.0722f, 0, 0,
-                    0.2126f, 0.7152f, 0.0722f, 0, 0,
-                    0,       0,       0,       1, 0
+                    rR, rG, rB, 0, 0,
+                    gR, gG, gB, 0, 0,
+                    bR, bG, bB, 0, 0,
+                    0,  0,  0,  1, 0
                 });
                 break;
             case "sepia":
                 paint.ColorFilter = SKColorFilter.CreateColorMatrix(new float[]
                 {
-                    0.393f, 0.769f, 0.189f, 0, 0,
-                    0.349f, 0.686f, 0.168f, 0, 0,
-                    0.272f, 0.534f, 0.131f, 0, 0,
-                    0,      0,      0,      1, 0
+                    (1 - t) + t * 0.393f, t * 0.769f,           t * 0.189f,           0, 0,
+                    t * 0.349f,           (1 - t) + t * 0.686f, t * 0.168f,           0, 0,
+                    t * 0.272f,           t * 0.534f,           (1 - t) + t * 0.131f, 0, 0,
+                    0,                    0,                    0,                    1, 0
                 });
                 break;
             case "invert":
+                float inv = 1 - 2 * Math.Abs(t); 
+                float add = 1.0f * Math.Abs(t);   
                 paint.ColorFilter = SKColorFilter.CreateColorMatrix(new float[]
                 {
-                    -1,  0,  0,  0, 255,
-                     0, -1,  0,  0, 255,
-                     0,  0, -1,  0, 255,
-                     0,  0,  0,  1,   0
+                    inv, 0,   0,   0, add,
+                    0,   inv, 0,   0, add,
+                    0,   0,   inv, 0, add,
+                    0,   0,   0,   1, 0
                 });
                 break;
             case "blur":
-                // 0-10 intensity. Max blur sigma = 20
-                float sigma = (intensity / 10f) * 20f;
+                // Mức blur tối đa: sigma = 20
+                float sigma = t * 20f;
                 if (sigma > 0)
                 {
                     paint.ImageFilter = SKImageFilter.CreateBlur(sigma, sigma);
                 }
                 break;
             case "brightness":
-                // Intensity 0-10, where 5 is original (1.0). Limit: 0 to 2.0. Scale (Intensity / 5)
-                float brightnessScale = intensity / 5f;
+                // Thay vì cộng bù (Additive) gây cháy trắng/đen đặc, dùng Hệ số nhân (Scale) để bảo toàn chi tiết ảnh.
+                // Scale từ 0.5x (-100) đến 1.5x (+100)
+                float scale = 1.0f + (t * 0.5f);
                 paint.ColorFilter = SKColorFilter.CreateColorMatrix(new float[]
                 {
-                    brightnessScale, 0, 0, 0, 0,
-                    0, brightnessScale, 0, 0, 0,
-                    0, 0, brightnessScale, 0, 0,
-                    0, 0, 0, 1, 0
+                    scale, 0,     0,     0, 0,
+                    0,     scale, 0,     0, 0,
+                    0,     0,     scale, 0, 0,
+                    0,     0,     0,     1, 0
                 });
                 break;
             case "sharpen":
-                float k = (intensity / 10f); // 0 to 1
+                float k = t; // k từ 0 đến 1.0
                 float center = 1f + 4f * k;
                 float edge = -k;
 
@@ -137,11 +150,10 @@ public class ImageProcessingService : IImageProcessingService
         }
     }
 
-    public async Task<byte[]> ApplyTransformAsync(string filePath, string transformType)
+    public async Task<byte[]> ApplyTransformAsync(byte[] sourceBytes, string transformType)
     {
-        if (!File.Exists(filePath)) throw new FileNotFoundException($"Image at path '{filePath}' not found.");
-        byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
-        using var bitmap = SKBitmap.Decode(fileBytes) ?? throw new InvalidOperationException("Failed to decode image.");
+        await Task.Yield(); // satisfy async
+        using var bitmap = SKBitmap.Decode(sourceBytes) ?? throw new InvalidOperationException("Failed to decode image.");
         
         int newWidth = bitmap.Width;
         int newHeight = bitmap.Height;
@@ -190,11 +202,10 @@ public class ImageProcessingService : IImageProcessingService
         return data.ToArray();
     }
 
-    public async Task<byte[]> ApplyFlipAsync(string filePath, string direction)
+    public async Task<byte[]> ApplyFlipAsync(byte[] sourceBytes, string direction)
     {
-        if (!File.Exists(filePath)) throw new FileNotFoundException($"Image at path '{filePath}' not found.");
-        byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
-        using var bitmap = SKBitmap.Decode(fileBytes) ?? throw new InvalidOperationException("Failed to decode image.");
+        await Task.Yield(); // satisfy async
+        using var bitmap = SKBitmap.Decode(sourceBytes) ?? throw new InvalidOperationException("Failed to decode image.");
         
         using var surface = SKSurface.Create(new SKImageInfo(bitmap.Width, bitmap.Height));
         using var canvas = surface.Canvas;
@@ -223,11 +234,10 @@ public class ImageProcessingService : IImageProcessingService
         return data.ToArray();
     }
 
-    public async Task<byte[]> ApplyCropAsync(string filePath, int x, int y, int width, int height)
+    public async Task<byte[]> ApplyCropAsync(byte[] sourceBytes, int x, int y, int width, int height)
     {
-        if (!File.Exists(filePath)) throw new FileNotFoundException($"Image at path '{filePath}' not found.");
-        byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
-        using var bitmap = SKBitmap.Decode(fileBytes) ?? throw new InvalidOperationException("Failed to decode image.");
+        await Task.Yield(); // satisfy async
+        using var bitmap = SKBitmap.Decode(sourceBytes) ?? throw new InvalidOperationException("Failed to decode image.");
 
         var rect = new SKRectI(x, y, x + width, y + height);
         using var croppedSubset = new SKBitmap();

@@ -7,7 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddCors(options => {
     options.AddPolicy("MyAllowSpecificOrigins",
         policy => {
-            policy.WithOrigins("http://localhost:5500")
+            policy.WithOrigins("http://localhost:5500", "http://127.0.0.1:5500")
                   .AllowAnyHeader()
                   .AllowAnyMethod();
         });
@@ -31,9 +31,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
-app.UseHttpsRedirection();
-
+// Bỏ tính năng tự động Redirect sang HTTPS để tránh lỗi CORS 307 trên file API POST
+// app.UseHttpsRedirection();
 app.UseCors("MyAllowSpecificOrigins");
 
 app.UseAuthorization();
