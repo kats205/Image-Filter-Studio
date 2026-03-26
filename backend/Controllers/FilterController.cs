@@ -29,31 +29,37 @@ public class FilterController : ControllerBase
     }
 
     [HttpPost("/api/image/filter")]
-    public async Task<IActionResult> ApplyFilter([FromBody] FilterRequest request)
+    public async Task<IActionResult> ApplyFilter([FromForm] FilterRequest request)
     {
         if (request == null || string.IsNullOrWhiteSpace(request.ImageId) || string.IsNullOrWhiteSpace(request.Filter))
         {
             return BadRequest("Invalid request.");
         }
 
-        var fullPath = Path.Combine(_uploadPath, request.ImageId);
-
-        if (!System.IO.File.Exists(fullPath))
+        byte[] sourceBytes;
+        if (request.SourceImage != null && request.SourceImage.Length > 0)
         {
-            return NotFound($"Không tìm thấy file ảnh với ID: {request.ImageId} trong thư mục uploads.");
+            using var ms = new MemoryStream();
+            await request.SourceImage.CopyToAsync(ms);
+            sourceBytes = ms.ToArray();
+        }
+        else
+        {
+            var fullPath = Path.Combine(_uploadPath, request.ImageId);
+            if (!System.IO.File.Exists(fullPath)) return NotFound($"Không tìm thấy file ảnh với ID: {request.ImageId}");
+            sourceBytes = await System.IO.File.ReadAllBytesAsync(fullPath);
         }
 
         try
         {
-            var bytes = await _imageService.ApplyFilterAsync(fullPath, request.Filter, request.Intensity);
-            
-            await _historyService.AddActionAsync(request.ImageId, request.Filter, request.Intensity);
+            var bytes = await _imageService.ApplyFilterAsync(sourceBytes, request.Filter, request.Intensity);
+
+            if (!request.Preview)
+            {
+                await _historyService.AddActionAsync(request.ImageId, request.Filter, request.Intensity);
+            }
 
             return File(bytes, "image/png");
-        }
-        catch (FileNotFoundException ex)
-        {
-            return NotFound(ex.Message);
         }
         catch (ArgumentException ex)
         {

@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Http;
+
 namespace backend.Models;
 
 public class CropRequest
@@ -7,4 +9,6 @@ public class CropRequest
     public int Y { get; set; }
     public int Width { get; set; }
     public int Height { get; set; }
+    public IFormFile? SourceImage { get; set; }
+    public bool Preview { get; set; }
 }

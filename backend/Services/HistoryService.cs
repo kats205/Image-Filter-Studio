@@ -28,12 +28,33 @@ public class HistoryService : IHistoryService
 
     public async Task AddActionAsync(string imageId, string actionName, float? intensity, string? parameters = null)
     {
+        // Kiểm tra xem thao tác vừa thực hiện có giống thao tác gần nhất không (Để tránh lỗi áp dụng filter chồng chất khi F5)
+        // Transform, Flip, Crop là thay đổi độc lập nên vẫn lưu riêng
+        bool isFilter = actionName != "Transform" && actionName != "Flip" && actionName != "Crop";
+        
+        if (isFilter)
+        {
+            var lastAction = await _dbContext.FilterHistories
+                .Where(h => h.ImageId == imageId)
+                .OrderByDescending(h => h.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (lastAction != null && lastAction.Filter == actionName)
+            {
+                lastAction.Intensity = intensity;
+                lastAction.CreatedAt = DateTime.UtcNow;
+                _dbContext.FilterHistories.Update(lastAction);
+                await _dbContext.SaveChangesAsync();
+                return;
+            }
+        }
+
         var history = new FilterHistory
         {
             ImageId = imageId,
             Filter = actionName,
             Intensity = intensity,
-            Parameters = parameters, // Lưu JSON hoặc Data string nếu cần
+            Parameters = parameters,
             CreatedAt = DateTime.UtcNow
         };
 

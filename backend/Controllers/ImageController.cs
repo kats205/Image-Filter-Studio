@@ -53,7 +53,7 @@ namespace backend.Controllers
 
             return Ok(new
             {
-                imageId = fileId,
+                imageId = fileName,
                 fileName = fileName,
                 originalUrl = $"/Storage/uploads/{fileName}"
             });
@@ -83,21 +83,32 @@ namespace backend.Controllers
         }
 
         [HttpPost("transform")]
-        public async Task<IActionResult> TransformImage([FromBody] TransformRequest request, [FromServices] IImageProcessingService imageService, [FromServices] IHistoryService historyService)
+        public async Task<IActionResult> TransformImage([FromForm] TransformRequest request, [FromServices] IImageProcessingService imageService, [FromServices] IHistoryService historyService)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.ImageId) || string.IsNullOrWhiteSpace(request.Rotation))
                 return BadRequest("Invalid request.");
 
-            var safeImageId = Path.GetFileName(request.ImageId);
-            var filePath = Path.Combine(_uploadPath, safeImageId);
-
-            if (!System.IO.File.Exists(filePath))
-                return NotFound($"Không tìm thấy file ảnh với ID: {request.ImageId}");
+            byte[] sourceBytes;
+            if (request.SourceImage != null && request.SourceImage.Length > 0)
+            {
+                using var ms = new MemoryStream();
+                await request.SourceImage.CopyToAsync(ms);
+                sourceBytes = ms.ToArray();
+            }
+            else
+            {
+                var safeImageId = Path.GetFileName(request.ImageId);
+                var filePath = Path.Combine(_uploadPath, safeImageId);
+                if (!System.IO.File.Exists(filePath)) return NotFound($"Không tìm thấy file ảnh với ID: {request.ImageId}");
+                sourceBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+            }
 
             try
             {
-                var bytes = await imageService.ApplyTransformAsync(filePath, request.Rotation);
-                await historyService.AddActionAsync(request.ImageId, "Transform", null, request.Rotation);
+                var bytes = await imageService.ApplyTransformAsync(sourceBytes, request.Rotation);
+                if (!request.Preview) {
+                    await historyService.AddActionAsync(request.ImageId, "Transform", null, request.Rotation);
+                }
                 return File(bytes, "image/png");
             }
             catch (Exception ex)
@@ -107,21 +118,32 @@ namespace backend.Controllers
         }
 
         [HttpPost("flip")]
-        public async Task<IActionResult> FlipImage([FromBody] FlipRequest request, [FromServices] IImageProcessingService imageService, [FromServices] IHistoryService historyService)
+        public async Task<IActionResult> FlipImage([FromForm] FlipRequest request, [FromServices] IImageProcessingService imageService, [FromServices] IHistoryService historyService)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.ImageId) || string.IsNullOrWhiteSpace(request.Direction))
                 return BadRequest("Invalid request.");
 
-            var safeImageId = Path.GetFileName(request.ImageId);
-            var filePath = Path.Combine(_uploadPath, safeImageId);
-
-            if (!System.IO.File.Exists(filePath))
-                return NotFound($"Không tìm thấy file ảnh với ID: {request.ImageId}");
+            byte[] sourceBytes;
+            if (request.SourceImage != null && request.SourceImage.Length > 0)
+            {
+                using var ms = new MemoryStream();
+                await request.SourceImage.CopyToAsync(ms);
+                sourceBytes = ms.ToArray();
+            }
+            else
+            {
+                var safeImageId = Path.GetFileName(request.ImageId);
+                var filePath = Path.Combine(_uploadPath, safeImageId);
+                if (!System.IO.File.Exists(filePath)) return NotFound($"Không tìm thấy file ảnh với ID: {request.ImageId}");
+                sourceBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+            }
 
             try
             {
-                var bytes = await imageService.ApplyFlipAsync(filePath, request.Direction);
-                await historyService.AddActionAsync(request.ImageId, "Flip", null, request.Direction);
+                var bytes = await imageService.ApplyFlipAsync(sourceBytes, request.Direction);
+                if (!request.Preview) {
+                    await historyService.AddActionAsync(request.ImageId, "Flip", null, request.Direction);
+                }
                 return File(bytes, "image/png");
             }
             catch (ArgumentException ex)
@@ -135,21 +157,32 @@ namespace backend.Controllers
         }
 
         [HttpPost("crop")]
-        public async Task<IActionResult> CropImage([FromBody] CropRequest request, [FromServices] IImageProcessingService imageService, [FromServices] IHistoryService historyService)
+        public async Task<IActionResult> CropImage([FromForm] CropRequest request, [FromServices] IImageProcessingService imageService, [FromServices] IHistoryService historyService)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.ImageId) || request.Width <= 0 || request.Height <= 0)
                 return BadRequest("Invalid crop request.");
 
-            var safeImageId = Path.GetFileName(request.ImageId);
-            var filePath = Path.Combine(_uploadPath, safeImageId);
-
-            if (!System.IO.File.Exists(filePath))
-                return NotFound($"Không tìm thấy file ảnh với ID: {request.ImageId}");
+            byte[] sourceBytes;
+            if (request.SourceImage != null && request.SourceImage.Length > 0)
+            {
+                using var ms = new MemoryStream();
+                await request.SourceImage.CopyToAsync(ms);
+                sourceBytes = ms.ToArray();
+            }
+            else
+            {
+                var safeImageId = Path.GetFileName(request.ImageId);
+                var filePath = Path.Combine(_uploadPath, safeImageId);
+                if (!System.IO.File.Exists(filePath)) return NotFound($"Không tìm thấy file ảnh với ID: {request.ImageId}");
+                sourceBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+            }
 
             try
             {
-                var bytes = await imageService.ApplyCropAsync(filePath, request.X, request.Y, request.Width, request.Height);
-                await historyService.AddActionAsync(request.ImageId, "Crop", null, $"{{\"x\": {request.X}, \"y\": {request.Y}, \"width\": {request.Width}, \"height\": {request.Height}}}");
+                var bytes = await imageService.ApplyCropAsync(sourceBytes, request.X, request.Y, request.Width, request.Height);
+                if (!request.Preview) {
+                    await historyService.AddActionAsync(request.ImageId, "Crop", null, $"{{\"x\": {request.X}, \"y\": {request.Y}, \"width\": {request.Width}, \"height\": {request.Height}}}");
+                }
                 return File(bytes, "image/png");
             }
             catch (Exception ex)

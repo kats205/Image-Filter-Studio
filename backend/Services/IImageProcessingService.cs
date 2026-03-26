@@ -4,9 +4,9 @@ namespace backend.Services;
 
 public interface IImageProcessingService
 {
-    Task<byte[]> ApplyFilterAsync(string filePath, string filterName, float? intensity);
-    Task<byte[]> ApplyTransformAsync(string filePath, string transformType);
-    Task<byte[]> ApplyFlipAsync(string filePath, string direction);
-    Task<byte[]> ApplyCropAsync(string filePath, int x, int y, int width, int height);
+    Task<byte[]> ApplyFilterAsync(byte[] sourceBytes, string filterName, float? intensity);
+    Task<byte[]> ApplyTransformAsync(byte[] sourceBytes, string transformType);
+    Task<byte[]> ApplyFlipAsync(byte[] sourceBytes, string direction);
+    Task<byte[]> ApplyCropAsync(byte[] sourceBytes, int x, int y, int width, int height);
     IEnumerable<FilterInfo> GetAvailableFilters();
 }
