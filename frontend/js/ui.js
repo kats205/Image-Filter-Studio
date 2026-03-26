@@ -472,11 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isPanning = false;
     let panStart = { x: 0, y: 0 };
 
-    // Selection/Crop state
-    let isSelecting = false;
-    let selectStart = { x: 0, y: 0 };
-    let selectionDiv = null;
-    let cropRegion = null;
+    // Selection/Crop state (managed by CapCut Fixed Frame system below)
     window.currentCropPreset = 'freeform'; // Share with app.js
 
     function applyTransform() {
@@ -614,124 +610,299 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // -------------------------------------------------------------
-    // SELECT (CROP) TOOL INTERACTION LOOP
+    // PROFESSIONAL CROP SYSTEM (Freeform Handles + Fixed Ratio)
     // -------------------------------------------------------------
-    // Inject Overlay
-    // Inject Overlay into the image frame (white box)
-    const cropBox = el.processedPane.querySelector('.relative.w-full.h-full');
-    const cropTarget = document.getElementById('processed-image-frame') || cropBox;
-    
-    const cropOverlay = document.createElement('div');
-    cropOverlay.id = 'crop-overlay';
-    cropOverlay.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:20;';
-    // Append to cropTarget (white frame) to clip shading to the frame
-    cropTarget.appendChild(cropOverlay);
+    let cropFrameActive = false;
+    let cropCurrentPreset = 'freeform';
 
-    cropTarget.addEventListener('mousedown', (e) => {
-        if (currentTool !== 'select') return;
-        
-        const imgRect = el.processedImage.getBoundingClientRect();
-        if (e.clientX < imgRect.left || e.clientX > imgRect.right || 
-            e.clientY < imgRect.top  || e.clientY > imgRect.bottom) {
-            return; 
-        }
+    // Crop frame state (in display-px, relative to the rendered image's top-left)
+    let cropBox = { x: 0, y: 0, w: 0, h: 0 }; // px relative to displayed image
 
-        e.preventDefault(); 
-        isSelecting = true;
-        
-        // Coordinates relative to the white frame
-        const rect = cropTarget.getBoundingClientRect();
-        selectStart = { 
-            x: e.clientX - rect.left, 
-            y: e.clientY - rect.top 
+    let cropInteraction = null; // { type: 'move'|'resize', handle, startX, startY, startBox }
+
+    const RATIO_MAP = {
+        'freeform': null,
+        '1:1':  { w: 1,  h: 1  },
+        '4:3':  { w: 4,  h: 3  },
+        '16:9': { w: 16, h: 9  },
+    };
+
+    // ── DOM elements created once ────────────────────────────────
+    const cropContainer = document.createElement('div');
+    cropContainer.id = 'crop-container';
+    cropContainer.style.cssText = `
+        position: absolute; inset: 0; z-index: 24; display: none; pointer-events: none;
+    `;
+
+    // Dark overlay (4 strips around the frame)
+    const overlayParts = ['top','bottom','left','right'].map(side => {
+        const d = document.createElement('div');
+        d.dataset.overlayPart = side;
+        d.style.cssText = 'position:absolute;background:rgba(0,0,0,0.55);pointer-events:none;';
+        cropContainer.appendChild(d);
+        return d;
+    });
+
+    // The bright frame itself
+    const cropFrame = document.createElement('div');
+    cropFrame.id = 'capcut-crop-frame';
+    cropFrame.style.cssText = `
+        position: absolute;
+        border: 2px solid #fff;
+        box-sizing: border-box;
+        pointer-events: auto;
+        cursor: move;
+    `;
+
+    // Rule-of-thirds grid
+    const grid = document.createElement('div');
+    grid.style.cssText = 'position:absolute;inset:0;pointer-events:none;';
+    grid.innerHTML = `
+        <div style="position:absolute;left:33.33%;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.3);"></div>
+        <div style="position:absolute;left:66.66%;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.3);"></div>
+        <div style="position:absolute;top:33.33%;left:0;right:0;height:1px;background:rgba(255,255,255,0.3);"></div>
+        <div style="position:absolute;top:66.66%;left:0;right:0;height:1px;background:rgba(255,255,255,0.3);"></div>
+    `;
+    cropFrame.appendChild(grid);
+
+    // 8 resize handles
+    const HANDLES = [
+        { id:'nw', cursor:'nw-resize', style:'top:-5px;left:-5px;'       },
+        { id:'n',  cursor:'n-resize',  style:'top:-5px;left:50%;transform:translateX(-50%);' },
+        { id:'ne', cursor:'ne-resize', style:'top:-5px;right:-5px;'      },
+        { id:'e',  cursor:'e-resize',  style:'top:50%;right:-5px;transform:translateY(-50%);' },
+        { id:'se', cursor:'se-resize', style:'bottom:-5px;right:-5px;'   },
+        { id:'s',  cursor:'s-resize',  style:'bottom:-5px;left:50%;transform:translateX(-50%);' },
+        { id:'sw', cursor:'sw-resize', style:'bottom:-5px;left:-5px;'    },
+        { id:'w',  cursor:'w-resize',  style:'top:50%;left:-5px;transform:translateY(-50%);'  },
+    ];
+
+    HANDLES.forEach(h => {
+        const el2 = document.createElement('div');
+        el2.dataset.handle = h.id;
+        el2.style.cssText = `
+            position:absolute;width:10px;height:10px;
+            background:#fff;border:1.5px solid rgba(0,0,0,0.4);
+            border-radius:2px;cursor:${h.cursor};
+            pointer-events:auto;${h.style}
+        `;
+        // Only show corner handles if freeform
+        el2.classList.add('crop-handle');
+        cropFrame.appendChild(el2);
+    });
+
+    cropContainer.appendChild(cropFrame);
+    el.processedPane.style.position = 'relative';
+    el.processedPane.appendChild(cropContainer);
+
+    // ── Helper: get the rendered image bounds (px relative to pane) ──
+    function getImgBounds() {
+        const paneRect = el.processedPane.getBoundingClientRect();
+        const imgRect  = el.processedImage.getBoundingClientRect();
+        return {
+            x: imgRect.left - paneRect.left,
+            y: imgRect.top  - paneRect.top,
+            w: imgRect.width,
+            h: imgRect.height,
+        };
+    }
+
+    // ── Apply cropBox to DOM ─────────────────────────────────────
+    function renderCropFrame() {
+        const ib = getImgBounds();
+
+        // Frame position in pane coords
+        const fx = ib.x + cropBox.x;
+        const fy = ib.y + cropBox.y;
+        const fw = cropBox.w;
+        const fh = cropBox.h;
+
+        cropFrame.style.left   = `${fx}px`;
+        cropFrame.style.top    = `${fy}px`;
+        cropFrame.style.width  = `${fw}px`;
+        cropFrame.style.height = `${fh}px`;
+
+        // Overlay strips (relative to pane)
+        // top strip
+        overlayParts[0].style.cssText = `position:absolute;background:rgba(0,0,0,0.55);pointer-events:none;left:${ib.x}px;top:${ib.y}px;width:${ib.w}px;height:${cropBox.y}px;`;
+        // bottom strip
+        overlayParts[1].style.cssText = `position:absolute;background:rgba(0,0,0,0.55);pointer-events:none;left:${ib.x}px;top:${fy + fh}px;width:${ib.w}px;height:${ib.h - cropBox.y - fh}px;`;
+        // left strip
+        overlayParts[2].style.cssText = `position:absolute;background:rgba(0,0,0,0.55);pointer-events:none;left:${ib.x}px;top:${fy}px;width:${cropBox.x}px;height:${fh}px;`;
+        // right strip
+        overlayParts[3].style.cssText = `position:absolute;background:rgba(0,0,0,0.55);pointer-events:none;left:${fx + fw}px;top:${fy}px;width:${ib.w - cropBox.x - fw}px;height:${fh}px;`;
+
+        // Expose normalized region
+        window.cropRegion = {
+            nx: cropBox.x / ib.w,
+            ny: cropBox.y / ib.h,
+            nw: cropBox.w / ib.w,
+            nh: cropBox.h / ib.h,
+            dispW: ib.w,
+            dispH: ib.h,
         };
 
-        selectionDiv?.remove();
-        selectionDiv = document.createElement('div');
-        selectionDiv.style.cssText = `
-            position: absolute;
-            border: 2px dashed #fff;
-            outline: 1px solid rgba(0,0,0,0.5);
-            background: rgba(0,0,0,0.05);
-            pointer-events: none;
-            box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.55);
-            z-index: 21;
-        `;
-        cropOverlay.appendChild(selectionDiv);
+        // Show/hide handles based on preset
+        const isHandle = cropCurrentPreset === 'freeform';
+        cropFrame.querySelectorAll('.crop-handle').forEach(h2 => {
+            h2.style.display = isHandle ? 'block' : 'none';
+        });
+
+        // For fixed-ratio, make move cursor visible
+        cropFrame.style.cursor = cropCurrentPreset === 'freeform' ? 'move' : 'move';
+    }
+
+    // ── Constrain cropBox to image bounds ────────────────────────
+    function clampCropBox(ratio) {
+        const MIN = 20;
+        if (cropBox.x < 0) cropBox.x = 0;
+        if (cropBox.y < 0) cropBox.y = 0;
+        if (cropBox.w < MIN) cropBox.w = MIN;
+        if (cropBox.h < MIN) cropBox.h = MIN;
+
+        const ib = getImgBounds();
+        if (cropBox.x + cropBox.w > ib.w) cropBox.x = Math.max(0, ib.w - cropBox.w);
+        if (cropBox.y + cropBox.h > ib.h) cropBox.y = Math.max(0, ib.h - cropBox.h);
+        if (cropBox.w > ib.w) cropBox.w = ib.w;
+        if (cropBox.h > ib.h) cropBox.h = ib.h;
+
+        // Re-enforce ratio for fixed presets
+        if (ratio) {
+            const desiredW = cropBox.h * (ratio.w / ratio.h);
+            if (desiredW <= ib.w) {
+                cropBox.w = desiredW;
+            } else {
+                cropBox.w = ib.w;
+                cropBox.h = ib.w * (ratio.h / ratio.w);
+            }
+            if (cropBox.x + cropBox.w > ib.w) cropBox.x = ib.w - cropBox.w;
+            if (cropBox.y + cropBox.h > ib.h) cropBox.y = ib.h - cropBox.h;
+        }
+    }
+
+    // ── Build initial cropBox for a given preset ─────────────────
+    function initCropBox(presetKey) {
+        const ratio = RATIO_MAP[presetKey];
+        const ib = getImgBounds();
+        if (!ib.w || !ib.h) return;
+
+        if (!ratio) {
+            // Freeform: start covering full image
+            cropBox = { x: 0, y: 0, w: ib.w, h: ib.h };
+        } else {
+            const maxW = ib.w * 0.92;
+            const maxH = ib.h * 0.92;
+            let fw, fh;
+            if (maxW / ratio.w * ratio.h <= maxH) { fw = maxW; fh = maxW / ratio.w * ratio.h; }
+            else { fh = maxH; fw = maxH / ratio.h * ratio.w; }
+            cropBox = {
+                x: (ib.w - fw) / 2,
+                y: (ib.h - fh) / 2,
+                w: fw,
+                h: fh,
+            };
+        }
+        clampCropBox(ratio);
+    }
+
+    // ── Activate / Deactivate ────────────────────────────────────
+    function activateCropMode(presetKey) {
+        cropCurrentPreset = presetKey;
+        cropFrameActive   = true;
+
+        // Wait for rendered image to settle, then measure
+        requestAnimationFrame(() => {
+            initCropBox(presetKey);
+            cropContainer.style.display = 'block';
+            renderCropFrame();
+            document.getElementById('crop-action-buttons')?.classList.remove('hidden');
+        });
+    }
+
+    function deactivateCropMode() {
+        cropFrameActive = false;
+        cropContainer.style.display = 'none';
+        document.getElementById('crop-action-buttons')?.classList.add('hidden');
+        window.cropRegion = null;
+        cropInteraction = null;
+    }
+
+    window.activateCropMode  = activateCropMode;
+    window.deactivateCropMode = deactivateCropMode;
+
+    // ── Mouse interaction: MOVE the whole frame ──────────────────
+    cropFrame.addEventListener('mousedown', (e) => {
+        // Only move if NOT clicking on a resize handle
+        if (e.target.dataset.handle) return;
+        e.preventDefault();
+        cropInteraction = {
+            type: 'move',
+            startX: e.clientX,
+            startY: e.clientY,
+            startBox: { ...cropBox },
+        };
+    });
+
+    // ── Mouse interaction: RESIZE via handles ────────────────────
+    cropFrame.querySelectorAll('.crop-handle').forEach(handleEl => {
+        handleEl.addEventListener('mousedown', (e) => {
+            if (cropCurrentPreset !== 'freeform') return; // handles only for freeform
+            e.preventDefault();
+            e.stopPropagation();
+            cropInteraction = {
+                type: 'resize',
+                handle: handleEl.dataset.handle,
+                startX: e.clientX,
+                startY: e.clientY,
+                startBox: { ...cropBox },
+            };
+        });
     });
 
     window.addEventListener('mousemove', (e) => {
-        if (!isSelecting || currentTool !== 'select' || !selectionDiv) return;
-        window.getSelection()?.removeAllRanges(); 
-        
-        const rect = cropTarget.getBoundingClientRect();
-        const imgRect = el.processedImage.getBoundingClientRect();
-        
-        // Image edges relative to frame
-        const imgL = imgRect.left - rect.left;
-        const imgT = imgRect.top - rect.top;
-        const imgR = imgRect.right - rect.left;
-        const imgB = imgRect.bottom - rect.top;
+        if (!cropInteraction) return;
+        const dx = e.clientX - cropInteraction.startX;
+        const dy = e.clientY - cropInteraction.startY;
+        const ratio = RATIO_MAP[cropCurrentPreset];
+        const sb = cropInteraction.startBox;
+        const ib = getImgBounds();
 
-        let currentX = Math.max(imgL, Math.min(imgR, e.clientX - rect.left));
-        let currentY = Math.max(imgT, Math.min(imgB, e.clientY - rect.top));
+        if (cropInteraction.type === 'move') {
+            cropBox.x = sb.x + dx;
+            cropBox.y = sb.y + dy;
+            cropBox.w = sb.w;
+            cropBox.h = sb.h;
+        } else {
+            // Resize
+            const h = cropInteraction.handle;
+            let { x, y, w, h: bh } = sb;
 
-        let w = currentX - selectStart.x;
-        let h = currentY - selectStart.y;
+            if (h.includes('e')) { w  = Math.max(20, sb.w + dx); }
+            if (h.includes('s')) { bh = Math.max(20, sb.h + dy); }
+            if (h.includes('w')) { const nw = Math.max(20, sb.w - dx); x = sb.x + (sb.w - nw); w = nw; }
+            if (h.includes('n')) { const nh = Math.max(20, sb.h - dy); y = sb.y + (sb.h - nh); bh = nh; }
 
-        if (window.currentCropPreset === '1:1') {
-            const side = Math.max(Math.abs(w), Math.abs(h));
-            w = Math.sign(w) * side;
-            h = Math.sign(h) * side;
-        } else if (window.currentCropPreset === '4:3') {
-            const ratio = 4/3;
-            if (Math.abs(w) / Math.abs(h) > ratio) w = Math.sign(w) * Math.abs(h) * ratio;
-            else h = Math.sign(h) * Math.abs(w) / ratio;
-        } else if (window.currentCropPreset === '16:9') {
-            const ratio = 16/9;
-            if (Math.abs(w) / Math.abs(h) > ratio) w = Math.sign(w) * Math.abs(h) * ratio;
-            else h = Math.sign(h) * Math.abs(w) / ratio;
+            cropBox = { x, y, w, h: bh };
         }
 
-        let left = w < 0 ? selectStart.x + w : selectStart.x;
-        let top = h < 0 ? selectStart.y + h : selectStart.y;
-        let width = Math.abs(w);
-        let height = Math.abs(h);
-
-        // Snap to image bounds within the frame
-        if (left < imgL) { width -= (imgL - left); left = imgL; }
-        if (top < imgT) { height -= (imgT - top); top = imgT; }
-        if (left + width > imgR) width = imgR - left;
-        if (top + height > imgB) height = imgB - top;
-        
-        selectionDiv.style.left = `${left}px`;
-        selectionDiv.style.top = `${top}px`;
-        selectionDiv.style.width = `${width}px`;
-        selectionDiv.style.height = `${height}px`;
+        clampCropBox(ratio);
+        renderCropFrame();
     });
 
     window.addEventListener('mouseup', () => {
-        if (!isSelecting) return;
-        isSelecting = false;
-
-        if (selectionDiv) {
-            // Store coordinates relative to the frame
-            window.cropRegion = {
-                x: parseInt(selectionDiv.style.left),
-                y: parseInt(selectionDiv.style.top),
-                w: parseInt(selectionDiv.style.width),
-                h: parseInt(selectionDiv.style.height)
-            };
-            if (window.showToast) window.showToast("Region selected - click Apply to crop", "info");
-        }
+        cropInteraction = null;
     });
 
-    // Reset pan function exposed to window for app.js
+    // ── Reset pan function exposed to window for app.js ──────────
     window.resetWorkspace = () => {
         panOffset = { x: 0, y: 0 };
         currentZoom = 1.0;
         applyTransform();
-        document.getElementById('crop-overlay')?.replaceChildren();
-        window.cropRegion = null;
+        deactivateCropMode();
+        if (el.processedImage) el.processedImage.style.transform = '';
+        // Reset all filter state
+        if (window.appState) window.appState.filterState = {};
     };
 });
+
+

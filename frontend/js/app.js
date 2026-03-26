@@ -4,8 +4,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // -------------------------------------------------------------
     window.appState = {
         originalImageId: null,
-        historyStack: [], // Array of { url: string, action: string, blob: Blob }
-        currentIndex: -1
+        historyStack: [], // Array of { url, action, blob, filterState }
+        currentIndex: -1,
+        filterState: {}, // { filterName: intensityValue } — persisted across tab switches
     };
 
     window.filterConfigs = [];
@@ -23,6 +24,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const currentItem = window.appState.historyStack[window.appState.currentIndex];
             processedImage.src = currentItem.url;
         }
+        renderHistoryPanel();
     };
 
     const pushToHistory = (blob, actionName) => {
@@ -30,12 +32,151 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (window.appState.currentIndex < window.appState.historyStack.length - 1) {
             window.appState.historyStack = window.appState.historyStack.slice(0, window.appState.currentIndex + 1);
         }
-        
+
         const url = URL.createObjectURL(blob);
-        window.appState.historyStack.push({ url, action: actionName, blob });
+        // Snapshot current filterState into this history entry
+        const filterSnapshot = { ...window.appState.filterState };
+        window.appState.historyStack.push({ url, action: actionName, blob, filterSnapshot });
         window.appState.currentIndex++;
         updateViewer();
     };
+
+    /** Apply a filterState snapshot to filterState + update slider UI if applicable */
+    function applyFilterStateSnapshot(snapshot) {
+        if (!snapshot) return;
+        // Merge snapshot into live filterState
+        window.appState.filterState = { ...snapshot };
+        // If a filter is actively selected, update the slider to the restored value
+        if (activeFilterName) {
+            const key = activeFilterName.toLowerCase();
+            const restoredValue = window.appState.filterState[key];
+            if (restoredValue !== undefined && intensitySlider) {
+                intensitySlider.value = restoredValue;
+                if (intensityVal) intensityVal.innerText = restoredValue;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------
+    // VISUAL HISTORY PANEL
+    // -------------------------------------------------------------
+    /** Tạo thumbnail 60x60 từ blob bằng Canvas và trả về data URL */
+    async function makeThumbnailUrl(blob) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            const src = URL.createObjectURL(blob);
+            img.onload = () => {
+                URL.revokeObjectURL(src);
+                const SIZE = 60;
+                const canvas = document.createElement('canvas');
+                canvas.width  = SIZE;
+                canvas.height = SIZE;
+                const ctx = canvas.getContext('2d');
+                // Cover-fit: crop center
+                const ratio = Math.max(SIZE / img.naturalWidth, SIZE / img.naturalHeight);
+                const sw = SIZE / ratio;
+                const sh = SIZE / ratio;
+                const sx = (img.naturalWidth  - sw) / 2;
+                const sy = (img.naturalHeight - sh) / 2;
+                ctx.drawImage(img, sx, sy, sw, sh, 0, 0, SIZE, SIZE);
+                resolve(canvas.toDataURL('image/jpeg', 0.7));
+            };
+            img.onerror = () => { URL.revokeObjectURL(src); resolve(''); };
+            img.src = src;
+        });
+    }
+
+    /** Render toàn bộ lịch sử thành danh sách card có thumbnail */
+    async function renderHistoryPanel() {
+        const list   = document.getElementById('history-list');
+        const empty  = document.getElementById('history-empty-state');
+        if (!list) return;
+
+        const stack  = window.appState.historyStack;
+        const active = window.appState.currentIndex;
+
+        if (stack.length === 0) {
+            list.innerHTML = '';
+            if (empty) empty.classList.remove('hidden');
+            return;
+        }
+        if (empty) empty.classList.add('hidden');
+
+        // Chỉ cập nhật lại toàn bộ khi số lượng thẻ không khớp (tránh flicker)
+        if (list.children.length !== stack.length) {
+            list.innerHTML = '';
+            // Render newest-first (giống Photoshop)
+            for (let i = stack.length - 1; i >= 0; i--) {
+                const item      = stack[i];
+                const isCurrent = i === active;
+                const stepNum   = i + 1;
+
+                const thumbUrl = await makeThumbnailUrl(item.blob);
+
+                const card = document.createElement('div');
+                card.dataset.stepIndex = i;
+                card.style.cursor = 'pointer';
+                card.className = [
+                    'flex items-center gap-3 p-3 rounded-2xl border transition-all duration-200',
+                    isCurrent
+                        ? 'bg-slate-900 border-slate-800 shadow-lg'
+                        : 'bg-slate-50 border-slate-100 hover:bg-slate-100 opacity-80 hover:opacity-100',
+                ].join(' ');
+
+                card.innerHTML = `
+                    <div class="w-[52px] h-[52px] rounded-xl overflow-hidden shrink-0 border ${isCurrent ? 'border-slate-700' : 'border-slate-200'} bg-slate-200">
+                        ${thumbUrl ? `<img src="${thumbUrl}" class="w-full h-full object-cover" loading="lazy">` : `<div class="w-full h-full flex items-center justify-center text-slate-400 text-[9px]">No img</div>`}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[11px] font-bold leading-snug truncate ${isCurrent ? 'text-white' : 'text-slate-900'}">
+                            ${item.action || 'Step'}
+                        </p>
+                        <p class="text-[10px] mt-0.5 ${isCurrent ? 'text-slate-400' : 'text-slate-400'}">Step ${stepNum}</p>
+                    </div>
+                    ${isCurrent ? '<span class="bg-emerald-500/20 text-emerald-400 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tighter shrink-0">Now</span>' : ''}
+                `;
+
+                card.addEventListener('click', () => {
+                    const idx = parseInt(card.dataset.stepIndex);
+                    // Non-destructive navigation: chỉ thay đổi currentIndex
+                    window.appState.currentIndex = idx;
+                    processedImage.src = window.appState.historyStack[idx].url;
+                    // Restore filterState from this step's snapshot
+                    applyFilterStateSnapshot(window.appState.historyStack[idx].filterSnapshot);
+                    // Re-render panel to update active highlight
+                    renderHistoryPanel();
+                    if (window.showToast) window.showToast(`Nhảy về Step ${idx + 1}`, 'info');
+                });
+
+                list.appendChild(card);
+            }
+        } else {
+            // Chỉ cập nhật lại highlight nếu số thẻ không đổi
+            Array.from(list.children).forEach((card) => {
+                const idx       = parseInt(card.dataset.stepIndex);
+                const isCurrent = idx === active;
+                card.className = [
+                    'flex items-center gap-3 p-3 rounded-2xl border transition-all duration-200',
+                    isCurrent
+                        ? 'bg-slate-900 border-slate-800 shadow-lg cursor-default'
+                        : 'bg-slate-50 border-slate-100 hover:bg-slate-100 opacity-80 hover:opacity-100 cursor-pointer',
+                ].join(' ');
+                // Update text colors
+                const actionText = card.querySelector('p');
+                if (actionText) actionText.className = `text-[11px] font-bold leading-snug truncate ${isCurrent ? 'text-white' : 'text-slate-900'}`;
+                // Update Now badge
+                const existingBadge = card.querySelector('span');
+                if (isCurrent && !existingBadge) {
+                    const badge = document.createElement('span');
+                    badge.className = 'bg-emerald-500/20 text-emerald-400 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tighter shrink-0';
+                    badge.textContent = 'Now';
+                    card.appendChild(badge);
+                } else if (!isCurrent && existingBadge) {
+                    existingBadge.remove();
+                }
+            });
+        }
+    }
 
     // -------------------------------------------------------------
     // REHYDRATION (F5 Recovery)
@@ -46,10 +187,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         try {
             if (window.showToast) window.showToast("Recovering past session...", "info");
-            
+
             // 1. Fetch History Array
             let historyData = [];
-            try { historyData = await getHistory(savedImageId); } 
+            try { historyData = await getHistory(savedImageId); }
             catch { /* Not failing completely just because history fetch errors */ }
 
             // 2. Fetch Original Image
@@ -57,7 +198,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.appState.originalImageId = savedImageId;
             originImage.src = URL.createObjectURL(originalBlob);
             pushToHistory(originalBlob, 'Original Upload');
-            
+
             // Show workspace early so user isn't stuck
             const file = new File([originalBlob], "recovered.png", { type: originalBlob.type });
             if (window.onImageLoadedHook) {
@@ -66,7 +207,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const editor = document.getElementById('editor-view');
                 if (landing) landing.classList.add('hidden', 'view-hidden');
                 if (editor) editor.classList.remove('hidden', 'view-hidden');
-                
+
                 // We bypass the upload by manually triggering UI setup
                 document.getElementById('empty-state-dropzone').classList.add('hidden');
                 document.getElementById('image-viewer-container').classList.remove('hidden');
@@ -82,7 +223,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             for (const action of historyData) {
                 const currentBlob = window.appState.historyStack[window.appState.currentIndex].blob;
                 let newBlob;
-                
+
                 if (['Transform', 'Flip', 'Crop'].includes(action.actionName)) {
                     if (action.actionName === 'Transform') {
                         newBlob = await transformImage(savedImageId, action.parameters, currentBlob, true);
@@ -106,13 +247,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             localStorage.removeItem('currentImageId');
         }
     };
-    
+
     // -------------------------------------------------------------
     // 1. Hook into UI image load (Upload)
     // -------------------------------------------------------------
     window.onImageLoadedHook = async (file) => {
         if (window.resetWorkspace) window.resetWorkspace();
-        
+
         try {
             // Check if we are rehydrating, if so don't re-upload
             if (window.appState.originalImageId && localStorage.getItem('currentImageId') === window.appState.originalImageId && file.name === "recovered.png") {
@@ -123,20 +264,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             const data = await uploadImage(file);
             window.appState.originalImageId = data.imageId;
             localStorage.setItem('currentImageId', data.imageId);
-            
+
             // Push original state
             window.appState.historyStack = [];
             window.appState.currentIndex = -1;
             pushToHistory(file, 'Original Upload');
             originImage.src = URL.createObjectURL(file);
-            
+
             if (window.showToast) window.showToast("Ready for editing", "success");
         } catch (error) {
             console.error(error);
             if (window.showToast) window.showToast("Upload failed", "error");
         }
     };
-    
+
     // Call on load
     await rehydrateTimeline();
 
@@ -146,7 +287,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const filterOptions = document.querySelectorAll('.filter-option');
     const intensitySlider = document.getElementById('intensity-slider');
     const intensityVal = document.getElementById('intensity-val');
-    
+
     let activeFilterName = null;
     let previewTimeout = null;
     let sessionBaseIndex = -1; // Locks the base image state for a filter session
@@ -174,14 +315,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             pLabel.classList.add('text-slate-900');
 
             if (window.showToast) window.showToast(`Selected ${activeFilterName}`, 'success');
-            
-            // Cập nhật cấu hình slider dựa trên backend database mà KHÔNG tự động apply chồng bộ lọc
+
+            // Cập nhật cấu hình slider, ưu tiên giá trị đã lưu trong filterState
             const config = window.filterConfigs.find(f => f.name.toLowerCase() === activeFilterName.toLowerCase());
             if (config && intensitySlider) {
                 intensitySlider.min = config.minIntensity;
                 intensitySlider.max = config.maxIntensity;
-                intensitySlider.value = config.defaultIntensity;
-                if (intensityVal) intensityVal.innerText = config.defaultIntensity;
+                // Đọc giá trị đã lưu; nếu chưa có thì dùng default
+                const persistedVal = window.appState.filterState[activeFilterName.toLowerCase()];
+                const displayVal = persistedVal !== undefined ? persistedVal : config.defaultIntensity;
+                intensitySlider.value = displayVal;
+                if (intensityVal) intensityVal.innerText = displayVal;
             }
         });
     });
@@ -193,19 +337,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             intensityVal.innerText = value;
 
             if (!activeFilterName || !window.appState.originalImageId || sessionBaseIndex < 0) return;
-            
+
             clearTimeout(previewTimeout);
             previewTimeout = setTimeout(async () => {
                 try {
-                    // Luôn lấy ảnh GỐC của phiên làm việc này, không lấy ảnh rác do các lần kéo trước tạo ra
-                    const currentBlob = window.appState.historyStack[sessionBaseIndex].blob;
+                    // Luôn lấy ảnh GỐC của phiên làm việc này
+                    const baseBlob = window.appState.historyStack[sessionBaseIndex].blob;
+                    // Thu nhỏ ảnh xuống thumbnail trước khi gửi preview → nhanh hơn nhiều
+                    // const thumbBlob = await createPreviewBlob(baseBlob);
                     // preview=true prevents DB logging
-                    const previewBlob = await applyFilter(window.appState.originalImageId, activeFilterName, value, currentBlob, true);
+                    const previewBlob = await applyFilter(window.appState.originalImageId, activeFilterName, value, baseBlob, true);
                     processedImage.src = URL.createObjectURL(previewBlob);
                 } catch (err) {
                     console.error("Preview error", err);
                 }
-            }, 100); // 100ms debounce
+            }, 100); // Giảm debounce xuống 80ms vì payload nhỏ hơn nhiều
         });
 
         // Finalize state on mouse release
@@ -218,13 +364,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const currentBlob = window.appState.historyStack[sessionBaseIndex].blob;
                 // preview=false commits to DB
                 const finalBlob = await applyFilter(window.appState.originalImageId, activeFilterName, value, currentBlob, false);
-                
+
                 const newActionName = `${activeFilterName} (${value}%)`;
+
+                // Lưu giá trị mới vào filterState
+                window.appState.filterState[activeFilterName.toLowerCase()] = Number(value);
 
                 // Nếu người dùng đang sửa đi sửa lại CÙNG MỘT filter, ghi đè frame lịch sử thay vì tạo mớ rác chồng chất
                 if (window.appState.currentIndex > sessionBaseIndex) {
                     const url = URL.createObjectURL(finalBlob);
-                    window.appState.historyStack[window.appState.currentIndex] = { url, action: newActionName, blob: finalBlob };
+                    const filterSnapshot = { ...window.appState.filterState };
+                    window.appState.historyStack[window.appState.currentIndex] = { url, action: newActionName, blob: finalBlob, filterSnapshot };
                     updateViewer();
                 } else {
                     pushToHistory(finalBlob, newActionName);
@@ -247,7 +397,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!window.appState.originalImageId) return;
             const action = btn.getAttribute('title').toLowerCase();
             const currentBlob = window.appState.historyStack[window.appState.currentIndex].blob;
-            
+
             try {
                 let newBlob;
                 if (action.includes('flip')) {
@@ -257,7 +407,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     let rotation = '90';
                     if (action.includes('180')) rotation = '180';
                     else if (action.includes('270') || action.includes('left')) rotation = '270';
-                    
+
                     newBlob = await transformImage(window.appState.originalImageId, rotation, currentBlob, false);
                 }
                 pushToHistory(newBlob, `Transform ${action}`);
@@ -268,48 +418,86 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    const cropPresetBtns = document.querySelectorAll('#tab-content-transform section:last-of-type button');
+    const cropPresetBtns = document.querySelectorAll('#tab-content-transform section:last-of-type button[data-preset]');
     cropPresetBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             cropPresetBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
 
-            const map = { 'Freeform': 'freeform', 'Square 1:1': '1:1', 'Classic 4:3': '4:3', 'Wide 16:9': '16:9' };
-            window.currentCropPreset = map[btn.innerText.trim()] ?? 'freeform';
-            if (window.showToast) window.showToast(`Crop: ${btn.innerText.trim()} locked`, 'success');
+            const presetKey = btn.getAttribute('data-preset') || 'freeform';
+            window.currentCropPreset = presetKey;
+
+            // Kích hoạt chế độ crop kiểu CapCut (Fixed Frame)
+            if (window.activateCropMode && window.appState.originalImageId) {
+                window.activateCropMode(presetKey);
+                if (window.showToast) window.showToast(`Crop frame: ${btn.innerText.trim()} — kéo ảnh để căn chỉnh`, 'info');
+            } else if (!window.appState.originalImageId) {
+                if (window.showToast) window.showToast('Hãy upload ảnh trước', 'error');
+            }
         });
     });
 
-    const btnApply = document.getElementById('btn-apply');
-    if (btnApply) {
-        btnApply.addEventListener('click', async () => {
-            if (window.cropRegion && window.appState.originalImageId) {
-                if (window.showToast) window.showToast("Applying crop...", "info");
-                try { 
-                    const currentBlob = window.appState.historyStack[window.appState.currentIndex].blob;
-                    // Note: Coordinates from UI are relative to display.
-                    // Assuming they scale roughly or BE crop accepts percentages?
-                    // Actually, BE CropRequest asks for ints. The UI script calculated integers based on physical image dimensions!
-                    // Let's pass them as is.
-                    const blob = await cropImage(
-                        window.appState.originalImageId, 
-                        window.cropRegion.x, 
-                        window.cropRegion.y, 
-                        window.cropRegion.w, 
-                        window.cropRegion.h,
-                        currentBlob,
-                        false
-                    );
-                    pushToHistory(blob, "Crop Applied");
-                    if (window.showToast) window.showToast("Crop completed", "success");
-                } catch(e) {
-                    console.error("Crop error", e);
-                }
-                document.getElementById('crop-overlay')?.replaceChildren();
-                window.cropRegion = null;
-            } else {
-                if (window.showToast) window.showToast("Nothing to apply", "info");
+    // Apply Crop button
+    const btnApplyCrop = document.getElementById('btn-apply-crop');
+    if (btnApplyCrop) {
+        btnApplyCrop.addEventListener('click', async () => {
+            if (!window.cropRegion || !window.appState.originalImageId) {
+                if (window.showToast) window.showToast('Chọn tỉ lệ crop trước', 'info');
+                return;
             }
+
+            const cr = window.cropRegion;
+            // LUÔN lấy ảnh gốc index 0 để crop — non-destructive
+            const originalBlob = window.appState.historyStack[0]?.blob;
+            if (!originalBlob) {
+                if (window.showToast) window.showToast('Không tìm thấy ảnh gốc', 'error');
+                return;
+            }
+
+            // Lấy kích thước thực của ảnh gốc (index 0 luôn là bản upload gốc)
+            const origImg = new Image();
+            origImg.src = window.appState.historyStack[0].url;
+            await new Promise(r => { origImg.onload = r; origImg.onerror = r; });
+            const naturalW = origImg.naturalWidth;
+            const naturalH = origImg.naturalHeight;
+
+            const x = Math.round(Math.max(0, cr.nx * naturalW));
+            const y = Math.round(Math.max(0, cr.ny * naturalH));
+            const w = Math.round(Math.min(cr.nw * naturalW, naturalW - x));
+            const h = Math.round(Math.min(cr.nh * naturalH, naturalH - y));
+
+            if (w <= 0 || h <= 0) {
+                if (window.showToast) window.showToast('Vùng crop không hợp lệ', 'error');
+                return;
+            }
+
+            if (window.showToast) window.showToast('Đang xử lý crop...', 'info');
+            try {
+                // Gửi ảnh gốc (index 0) lên server để crop
+                const blob = await cropImage(
+                    window.appState.originalImageId,
+                    x, y, w, h,
+                    originalBlob,
+                    false
+                );
+                pushToHistory(blob, `Crop (${w}×${h})`);
+                if (window.showToast) window.showToast('Crop hoàn tất!', 'success');
+            } catch (e) {
+                console.error('Crop error', e);
+                if (window.showToast) window.showToast('Crop thất bại', 'error');
+            } finally {
+                if (window.deactivateCropMode) window.deactivateCropMode();
+            }
+        });
+    }
+
+    // Cancel Crop button
+    const btnCancelCrop = document.getElementById('btn-cancel-crop');
+    if (btnCancelCrop) {
+        btnCancelCrop.addEventListener('click', () => {
+            if (window.deactivateCropMode) window.deactivateCropMode();
+            if (processedImage) processedImage.style.transform = '';
+            if (window.showToast) window.showToast('Crop đã hủy', 'info');
         });
     }
 
@@ -391,19 +579,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnProcessDownload.addEventListener('click', () => {
             if (window.appState.currentIndex < 0) return;
             if (window.showToast) window.showToast("Preparing export...", "info");
-            
+
             setTimeout(() => {
                 const blobUrl = window.appState.historyStack[window.appState.currentIndex].url;
                 const activeFormatBtn = document.querySelector('.export-format-btn.border-slate-900');
                 const ext = activeFormatBtn ? activeFormatBtn.innerText.trim().toLowerCase() : 'png';
-                
+
                 const a = document.createElement('a');
                 a.href = blobUrl;
                 a.download = `Studio-Export-${Date.now()}.${ext}`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
-                
+
                 closeDownloadModal();
                 if (window.showToast) window.showToast("Image stored locally", "success");
             }, 600);
