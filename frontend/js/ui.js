@@ -616,9 +616,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let cropCurrentPreset = 'freeform';
 
     // Crop frame state (in display-px, relative to the rendered image's top-left)
-    let cropBox = { x: 0, y: 0, w: 0, h: 0 }; // px relative to displayed image
+    let cropBox = { x: 0, y: 0, w: 0, h: 0 };
+    let cropInteraction = null;
 
-    let cropInteraction = null; // { type: 'move'|'resize', handle, startX, startY, startBox }
+    // ── Composite canvas state (for re-crop mode) ──
+    let _compCanvas = null;        // the canvas element shown instead of processedImage
+    let _compImgABounds = null;    // Image A bounds in pane-relative px { x, y, w, h }
+    let _compImgBRegion = null;    // Image B region normalised to Image A { nx, ny, nw, nh }
+    let _compActive    = false;
 
     const RATIO_MAP = {
         'freeform': null,
@@ -695,8 +700,19 @@ document.addEventListener('DOMContentLoaded', () => {
     el.processedPane.style.position = 'relative';
     el.processedPane.appendChild(cropContainer);
 
+    // ── Helper: load an image from URL ──
+    function _loadImg(src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = src;
+        });
+    }
+
     // ── Helper: get the rendered image bounds (px relative to pane) ──
     function getImgBounds() {
+        if (_compActive && _compImgABounds) return { ..._compImgABounds };
         const paneRect = el.processedPane.getBoundingClientRect();
         const imgRect  = el.processedImage.getBoundingClientRect();
         return {
@@ -780,14 +796,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ── Build initial cropBox for a given preset ─────────────────
+    // ── Build initial cropBox for a given preset ────────────────────
     function initCropBox(presetKey) {
         const ratio = RATIO_MAP[presetKey];
         const ib = getImgBounds();
         if (!ib.w || !ib.h) return;
 
+        // Re-crop freeform: initial box = Image B's region within Image A display space
+        if (_compActive && _compImgBRegion && !ratio) {
+            cropBox = {
+                x: _compImgBRegion.nx * ib.w,
+                y: _compImgBRegion.ny * ib.h,
+                w: _compImgBRegion.nw * ib.w,
+                h: _compImgBRegion.nh * ib.h,
+            };
+            clampCropBox(null);
+            return;
+        }
+
         if (!ratio) {
-            // Freeform: start covering full image
             cropBox = { x: 0, y: 0, w: ib.w, h: ib.h };
         } else {
             const maxW = ib.w * 0.92;
@@ -805,12 +832,72 @@ document.addEventListener('DOMContentLoaded', () => {
         clampCropBox(ratio);
     }
 
-    // ── Activate / Deactivate ────────────────────────────────────
-    function activateCropMode(presetKey) {
-        cropCurrentPreset = presetKey;
-        cropFrameActive   = true;
+    // ── Build composite canvas for re-crop mode ────────────────────────
+    async function _buildComposite(origEntry, currEntry, sourceRegion, origSR, presetKey) {
+        const [imgA, imgB] = await Promise.all([
+            _loadImg(origEntry.url),
+            _loadImg(currEntry.url),
+        ]);
 
-        // Wait for rendered image to settle, then measure
+        const paneRect = el.processedPane.getBoundingClientRect();
+        const pW = paneRect.width;
+        const pH = paneRect.height;
+
+        // Scale Image A to fit pane (contain)
+        const scaleA = Math.min(pW / imgA.naturalWidth, pH / imgA.naturalHeight);
+        const dAW = Math.round(imgA.naturalWidth  * scaleA);
+        const dAH = Math.round(imgA.naturalHeight * scaleA);
+        const dAX = Math.round((pW - dAW) / 2);
+        const dAY = Math.round((pH - dAH) / 2);
+
+        // Image B pixel position within Image A display space
+        const bLeft = dAX + Math.round(sourceRegion.x / origSR.w * dAW);
+        const bTop  = dAY + Math.round(sourceRegion.y / origSR.h * dAH);
+        const bW    = Math.round(sourceRegion.w / origSR.w * dAW);
+        const bH    = Math.round(sourceRegion.h / origSR.h * dAH);
+
+        // Create / reuse canvas
+        if (!_compCanvas) {
+            _compCanvas = document.createElement('canvas');
+            _compCanvas.id = 'crop-composite-canvas';
+            _compCanvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:2;';
+            el.processedPane.querySelector('div').appendChild(_compCanvas);
+        }
+        _compCanvas.width  = pW;
+        _compCanvas.height = pH;
+        _compCanvas.style.width  = pW + 'px';
+        _compCanvas.style.height = pH + 'px';
+        _compCanvas.style.display = 'block';
+
+        const ctx = _compCanvas.getContext('2d');
+        ctx.clearRect(0, 0, pW, pH);
+        // Draw Image A dimmed (context / vùng đã bị cắt)
+        ctx.globalAlpha = 0.38;
+        ctx.drawImage(imgA, dAX, dAY, dAW, dAH);
+        // Draw Image B at correct position, full opacity
+        ctx.globalAlpha = 1.0;
+        ctx.drawImage(imgB, bLeft, bTop, bW, bH);
+
+        // Store results
+        _compImgABounds = { x: dAX, y: dAY, w: dAW, h: dAH };
+        _compImgBRegion = {
+            nx: sourceRegion.x / origSR.w,
+            ny: sourceRegion.y / origSR.h,
+            nw: sourceRegion.w / origSR.w,
+            nh: sourceRegion.h / origSR.h,
+        };
+        _compActive = true;
+
+        // Tell app.js crop handler to use Image A coords
+        window.cropState = {
+            isComposite: true,
+            origNaturalW: imgA.naturalWidth,
+            origNaturalH: imgA.naturalHeight,
+        };
+
+        // Hide processedImage — canvas is the visual reference
+        el.processedImage.style.opacity = '0';
+
         requestAnimationFrame(() => {
             initCropBox(presetKey);
             cropContainer.style.display = 'block';
@@ -819,12 +906,58 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ── Activate / Deactivate ──────────────────────────────────
+    function activateCropMode(presetKey) {
+        cropCurrentPreset = presetKey;
+        cropFrameActive   = true;
+        window.cropState  = null;
+
+        const currEntry = window.appState?.historyStack?.[window.appState.currentIndex];
+        const origEntry = window.appState?.historyStack?.[0];
+        const sourceRegion = currEntry?.sourceRegion;
+        const origSR = origEntry?.sourceRegion;
+
+        // Re-crop: current image is a crop subset of Image A (has valid sourceRegion)
+        const isReCrop = origSR?.w > 0 && sourceRegion && (
+            sourceRegion.x > 0 || sourceRegion.y > 0 ||
+            sourceRegion.w < origSR.w || sourceRegion.h < origSR.h
+        );
+
+        // Remove old ghost (replaced by composite canvas)
+        const oldGhost = document.getElementById('crop-ghost-img');
+        if (oldGhost) oldGhost.style.display = 'none';
+
+        if (isReCrop) {
+            _buildComposite(origEntry, currEntry, sourceRegion, origSR, presetKey);
+        } else {
+            _compActive = false;
+            el.processedImage.style.opacity = '';
+            requestAnimationFrame(() => {
+                initCropBox(presetKey);
+                cropContainer.style.display = 'block';
+                renderCropFrame();
+                document.getElementById('crop-action-buttons')?.classList.remove('hidden');
+            });
+        }
+    }
+
     function deactivateCropMode() {
         cropFrameActive = false;
         cropContainer.style.display = 'none';
         document.getElementById('crop-action-buttons')?.classList.add('hidden');
         window.cropRegion = null;
-        cropInteraction = null;
+        cropInteraction   = null;
+
+        // Clean up composite canvas
+        if (_compCanvas) _compCanvas.style.display = 'none';
+        _compActive    = false;
+        _compImgABounds = null;
+        _compImgBRegion = null;
+
+        // Restore processedImage
+        el.processedImage.style.opacity  = '';
+        el.processedImage.style.position = '';
+        el.processedImage.style.zIndex   = '';
     }
 
     window.activateCropMode  = activateCropMode;

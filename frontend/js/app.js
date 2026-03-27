@@ -27,33 +27,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderHistoryPanel();
     };
 
-    const pushToHistory = (blob, actionName) => {
-        // If we are not at the end of the stack, truncate the future (Redo is lost upon new action)
+    // sourceRegion = { x, y, w, h } vị trí trong Image A (historyStack[0]) pixel space
+    const pushToHistory = (blob, actionName, sourceRegion = null) => {
         if (window.appState.currentIndex < window.appState.historyStack.length - 1) {
             window.appState.historyStack = window.appState.historyStack.slice(0, window.appState.currentIndex + 1);
         }
-
         const url = URL.createObjectURL(blob);
-        // Snapshot current filterState into this history entry
         const filterSnapshot = { ...window.appState.filterState };
-        window.appState.historyStack.push({ url, action: actionName, blob, filterSnapshot });
+        // Kế thừa sourceRegion từ parent nếu không được cung cấp (filter không đổi vùng)
+        const parentSR = sourceRegion !== null
+            ? sourceRegion
+            : (window.appState.historyStack[window.appState.currentIndex]?.sourceRegion ?? null);
+        window.appState.historyStack.push({ url, action: actionName, blob, filterSnapshot, sourceRegion: parentSR });
         window.appState.currentIndex++;
         updateViewer();
     };
 
-    /** Apply a filterState snapshot to filterState + update slider UI if applicable */
+    /** Apply a filterState snapshot — restores filterState and updates slider to match */
     function applyFilterStateSnapshot(snapshot) {
-        if (!snapshot) return;
         // Merge snapshot into live filterState
-        window.appState.filterState = { ...snapshot };
-        // If a filter is actively selected, update the slider to the restored value
-        if (activeFilterName) {
+        window.appState.filterState = snapshot ? { ...snapshot } : {};
+        // Update the active slider to match the snapshot value (or default/0 if absent)
+        if (activeFilterName && intensitySlider) {
             const key = activeFilterName.toLowerCase();
             const restoredValue = window.appState.filterState[key];
-            if (restoredValue !== undefined && intensitySlider) {
-                intensitySlider.value = restoredValue;
-                if (intensityVal) intensityVal.innerText = restoredValue;
-            }
+            const config = window.filterConfigs?.find(f => f.name.toLowerCase() === key);
+            // If the snapshot doesn't have this filter, reset to default (e.g. 0)
+            const displayVal = restoredValue !== undefined
+                ? restoredValue
+                : (config ? config.defaultIntensity : 0);
+            intensitySlider.value = displayVal;
+            if (intensityVal) intensityVal.innerText = displayVal;
         }
     }
 
@@ -265,11 +269,24 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.appState.originalImageId = data.imageId;
             localStorage.setItem('currentImageId', data.imageId);
 
-            // Push original state
+            // Push original state (sourceRegion set after image loads via onload)
             window.appState.historyStack = [];
             window.appState.currentIndex = -1;
-            pushToHistory(file, 'Original Upload');
+            pushToHistory(file, 'Original Upload', { x: 0, y: 0, w: 0, h: 0 });
             originImage.src = URL.createObjectURL(file);
+
+            // Cập nhật dims thực cho historyStack[0].sourceRegion khi ảnh load xong
+            const setOrigDims = () => {
+                if (window.appState.historyStack[0]?.sourceRegion?.w === 0) {
+                    window.appState.historyStack[0].sourceRegion = {
+                        x: 0, y: 0,
+                        w: processedImage.naturalWidth,
+                        h: processedImage.naturalHeight,
+                    };
+                }
+                processedImage.removeEventListener('load', setOrigDims);
+            };
+            processedImage.addEventListener('load', setOrigDims);
 
             if (window.showToast) window.showToast("Ready for editing", "success");
         } catch (error) {
@@ -331,13 +348,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     if (intensitySlider && intensityVal) {
-        // ─── Real-time Preview (kéo slider) ─────────────────────────────
+        // ─── Real-time Preview (kéo slider) ──────────────────────────────
         // Dùng ảnh thumbnail 480px gửi lên server → phản hồi gần real-time
         intensitySlider.addEventListener('input', (e) => {
             const value = e.target.value;
             intensityVal.innerText = value;
 
             if (!activeFilterName || !window.appState.originalImageId || sessionBaseIndex < 0) return;
+
+            // Khóa kích thước hiển thị để tránh ảnh bị co lại khi dùng preview nhỏ
+            const imgEl = processedImage;
+            if (!imgEl._lockedW && imgEl.naturalWidth > 0) {
+                imgEl._lockedW = imgEl.offsetWidth;
+                imgEl._lockedH = imgEl.offsetHeight;
+                imgEl.style.width  = imgEl._lockedW + 'px';
+                imgEl.style.height = imgEl._lockedH + 'px';
+                imgEl.style.objectFit = 'cover';
+            }
 
             clearTimeout(previewTimeout);
             previewTimeout = setTimeout(async () => {
@@ -347,9 +374,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const thumbBlob = await createPreviewBlob(baseBlob, 480, 0.55);
                     // preview=true prevents DB logging
                     const previewBlob = await applyFilter(window.appState.originalImageId, activeFilterName, value, thumbBlob, true);
-                    // Cập nhật preview — dùng CSS object-fit nên kích thước hiển thị không đổi
-                    processedImage.style.imageRendering = 'auto';
-                    processedImage.src = URL.createObjectURL(previewBlob);
+                    // Cập nhật preview — kích thước hiển thị được khóa nên không bị thu nhỏ
+                    imgEl.src = URL.createObjectURL(previewBlob);
                 } catch (err) {
                     console.error('Preview error', err);
                 }
@@ -362,13 +388,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             const value = e.target.value;
             if (!activeFilterName || !window.appState.originalImageId || sessionBaseIndex < 0) return;
 
+            // Mở khóa kích thước ảnh — updateViewer sẽ cập nhật đúng sau khi lưu history
+            const imgEl = processedImage;
+            if (imgEl._lockedW) {
+                imgEl.style.width  = '';
+                imgEl.style.height = '';
+                imgEl.style.objectFit = '';
+                delete imgEl._lockedW;
+                delete imgEl._lockedH;
+            }
+
             try {
                 // Ảnh gốc chất lượng cao của phiên
                 const currentBlob = window.appState.historyStack[sessionBaseIndex].blob;
                 // preview=false commits to DB
                 const finalBlob = await applyFilter(window.appState.originalImageId, activeFilterName, value, currentBlob, false);
-                // Cập nhật lại ảnh hiển thị với bản chất lượng cao
-                processedImage.src = URL.createObjectURL(finalBlob);
 
                 const newActionName = `${activeFilterName} (${value}%)`;
 
@@ -450,21 +484,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (window.showToast) window.showToast('Chọn tỉ lệ crop trước', 'info');
                 return;
             }
+            if (window.appState.currentIndex < 0) return;
 
             const cr = window.cropRegion;
-            // LUÔN lấy ảnh gốc index 0 để crop — non-destructive
-            const originalBlob = window.appState.historyStack[0]?.blob;
-            if (!originalBlob) {
-                if (window.showToast) window.showToast('Không tìm thấy ảnh gốc', 'error');
-                return;
+            const cropSt = window.cropState || {};
+
+            let sourceBlob, naturalW, naturalH;
+            if (cropSt.isComposite && cropSt.origNaturalW) {
+                // Re-crop: cropRegion đã tính trong Image A space (do composite getImgBounds = Image A)
+                sourceBlob = window.appState.historyStack[0]?.blob;
+                naturalW   = cropSt.origNaturalW;
+                naturalH   = cropSt.origNaturalH;
+            } else {
+                // Simple crop (lần đầu): dùng ảnh hiện tại, coords là local space
+                sourceBlob = window.appState.historyStack[window.appState.currentIndex]?.blob;
+                naturalW   = processedImage.naturalWidth;
+                naturalH   = processedImage.naturalHeight;
             }
 
-            // Lấy kích thước thực của ảnh gốc (index 0 luôn là bản upload gốc)
-            const origImg = new Image();
-            origImg.src = window.appState.historyStack[0].url;
-            await new Promise(r => { origImg.onload = r; origImg.onerror = r; });
-            const naturalW = origImg.naturalWidth;
-            const naturalH = origImg.naturalHeight;
+            if (!sourceBlob || !naturalW || !naturalH) {
+                if (window.showToast) window.showToast('Ảnh chưa sẵn sàng, thử lại', 'error');
+                return;
+            }
 
             const x = Math.round(Math.max(0, cr.nx * naturalW));
             const y = Math.round(Math.max(0, cr.ny * naturalH));
@@ -478,19 +519,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (window.showToast) window.showToast('Đang xử lý crop...', 'info');
             try {
-                // Gửi ảnh gốc (index 0) lên server để crop
                 const blob = await cropImage(
                     window.appState.originalImageId,
                     x, y, w, h,
-                    originalBlob,
+                    sourceBlob,
                     false
                 );
-                pushToHistory(blob, `Crop (${w}×${h})`);
+                // Lưu sourceRegion tuyệt đối trong Image A pixel space
+                pushToHistory(blob, `Crop (${w}×${h})`, { x, y, w, h });
                 if (window.showToast) window.showToast('Crop hoàn tất!', 'success');
             } catch (e) {
                 console.error('Crop error', e);
                 if (window.showToast) window.showToast('Crop thất bại', 'error');
             } finally {
+                window.cropState = null;
                 if (window.deactivateCropMode) window.deactivateCropMode();
             }
         });
