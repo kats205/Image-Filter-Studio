@@ -19,11 +19,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     const originImage = document.getElementById('origin-image');
     const processedImage = document.getElementById('processed-image');
 
+    const updateEditorActionState = () => {
+        const historyLength = window.appState.historyStack.length;
+        const currentIndex = window.appState.currentIndex;
+        const hasImage = historyLength > 0 && currentIndex >= 0;
+        const downloadButton = document.getElementById('btn-download');
+        const undoButton = document.getElementById('btn-undo');
+        const redoButton = document.getElementById('btn-redo');
+
+        if (downloadButton) downloadButton.disabled = !hasImage;
+        if (undoButton) undoButton.disabled = !(hasImage && currentIndex > 0);
+        if (redoButton) redoButton.disabled = !(hasImage && currentIndex < historyLength - 1);
+    };
+    window.updateEditorActionState = updateEditorActionState;
+
     const updateViewer = () => {
         if (window.appState.currentIndex >= 0) {
             const currentItem = window.appState.historyStack[window.appState.currentIndex];
             processedImage.src = currentItem.url;
         }
+        updateEditorActionState();
         renderHistoryPanel();
     };
 
@@ -248,7 +263,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // Re-render and Enable UI
             updateViewer();
-            if (btnDownload) btnDownload.removeAttribute('disabled');
             if (window.uiState?.floatingToolbarButtons) {
                 window.uiState.floatingToolbarButtons.forEach(btn => btn.removeAttribute('disabled'));
             }
@@ -300,8 +314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.appState.originalImageId = data.imageId;
             localStorage.setItem('currentImageId', data.imageId);
 
-            // Critical fix: Only enable download/tools after history is ready
-            if (btnDownload) btnDownload.removeAttribute('disabled');
+            // History state already enables the proper header actions via updateViewer.
             if (window.uiState?.floatingToolbarButtons) {
                 window.uiState.floatingToolbarButtons.forEach(btn => btn.removeAttribute('disabled'));
             }
@@ -576,6 +589,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnUndo = document.getElementById('btn-undo');
     const btnRedo = document.getElementById('btn-redo');
 
+    updateEditorActionState();
+
     window.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         if (e.ctrlKey && e.key.toLowerCase() === 'z') { e.preventDefault(); btnUndo?.click(); }
@@ -674,7 +689,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     if (btnDownload) {
-        btnDownload.addEventListener('click', openDownloadModal);
+        btnDownload.addEventListener('click', () => {
+            downloadCurrentImage({ ext: 'png', isPreview: false, closeModal: false });
+        });
     }
     if (btnCloseDownload) btnCloseDownload.addEventListener('click', closeDownloadModal);
     if (downloadModal) downloadModal.addEventListener('click', (e) => { if (e.target === downloadModal) closeDownloadModal(); });

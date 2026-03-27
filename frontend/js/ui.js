@@ -105,6 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
             requestAnimationFrame(() => {
                 el.editorView.classList.remove('view-hidden');
                 if (window.lucide) window.lucide.createIcons();
+                if (window.updateEditorActionState) window.updateEditorActionState();
             });
         }, 400); // 400ms is a sweet spot for switching
     }
