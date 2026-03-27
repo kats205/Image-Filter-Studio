@@ -331,7 +331,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     if (intensitySlider && intensityVal) {
-        // Real-time Preview 
+        // ─── Real-time Preview (kéo slider) ─────────────────────────────
+        // Dùng ảnh thumbnail 480px gửi lên server → phản hồi gần real-time
         intensitySlider.addEventListener('input', (e) => {
             const value = e.target.value;
             intensityVal.innerText = value;
@@ -341,29 +342,33 @@ document.addEventListener('DOMContentLoaded', async () => {
             clearTimeout(previewTimeout);
             previewTimeout = setTimeout(async () => {
                 try {
-                    // Luôn lấy ảnh GỐC của phiên làm việc này
                     const baseBlob = window.appState.historyStack[sessionBaseIndex].blob;
-                    // Thu nhỏ ảnh xuống thumbnail trước khi gửi preview → nhanh hơn nhiều
-                    // const thumbBlob = await createPreviewBlob(baseBlob);
+                    // Thu nhỏ xuống 480px trước khi gửi → payload nhỏ, server xử lý nhanh
+                    const thumbBlob = await createPreviewBlob(baseBlob, 480, 0.55);
                     // preview=true prevents DB logging
-                    const previewBlob = await applyFilter(window.appState.originalImageId, activeFilterName, value, baseBlob, true);
+                    const previewBlob = await applyFilter(window.appState.originalImageId, activeFilterName, value, thumbBlob, true);
+                    // Cập nhật preview — dùng CSS object-fit nên kích thước hiển thị không đổi
+                    processedImage.style.imageRendering = 'auto';
                     processedImage.src = URL.createObjectURL(previewBlob);
                 } catch (err) {
-                    console.error("Preview error", err);
+                    console.error('Preview error', err);
                 }
-            }, 100); // Giảm debounce xuống 80ms vì payload nhỏ hơn nhiều
+            }, 30); // 30ms debounce — đủ để tránh flood, đủ gần real-time
         });
 
-        // Finalize state on mouse release
+        // ─── Commit state khi nhả chuột (change) ────────────────────────
+        // Dùng ảnh gốc full chất lượng để ghi vào history
         intensitySlider.addEventListener('change', async (e) => {
             const value = e.target.value;
             if (!activeFilterName || !window.appState.originalImageId || sessionBaseIndex < 0) return;
 
             try {
-                // Vẫn dùng ảnh gốc của phiên
+                // Ảnh gốc chất lượng cao của phiên
                 const currentBlob = window.appState.historyStack[sessionBaseIndex].blob;
                 // preview=false commits to DB
                 const finalBlob = await applyFilter(window.appState.originalImageId, activeFilterName, value, currentBlob, false);
+                // Cập nhật lại ảnh hiển thị với bản chất lượng cao
+                processedImage.src = URL.createObjectURL(finalBlob);
 
                 const newActionName = `${activeFilterName} (${value}%)`;
 
@@ -382,7 +387,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 if (window.showToast) window.showToast(`${activeFilterName} Applied`, 'success');
             } catch (err) {
-                console.error("Commit error", err);
+                console.error('Commit error', err);
                 updateViewer(); // revert to last valid state
             }
         });
@@ -576,25 +581,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupToggle(qualityBtns);
 
     if (btnProcessDownload) {
-        btnProcessDownload.addEventListener('click', () => {
+        btnProcessDownload.addEventListener('click', async () => {
             if (window.appState.currentIndex < 0) return;
-            if (window.showToast) window.showToast("Preparing export...", "info");
+            if (window.showToast) window.showToast('Preparing export...', 'info');
 
-            setTimeout(() => {
-                const blobUrl = window.appState.historyStack[window.appState.currentIndex].url;
-                const activeFormatBtn = document.querySelector('.export-format-btn.border-slate-900');
-                const ext = activeFormatBtn ? activeFormatBtn.innerText.trim().toLowerCase() : 'png';
+            const sourceBlob = window.appState.historyStack[window.appState.currentIndex].blob;
+            const activeFormatBtn = document.querySelector('.export-format-btn.border-slate-900');
+            const activeQualityBtn = document.querySelector('.export-quality-btn.border-slate-900');
 
+            const ext        = activeFormatBtn ? activeFormatBtn.innerText.trim().toLowerCase() : 'jpg';
+            const isPreview  = activeQualityBtn ? activeQualityBtn.innerText.includes('Preview') : false;
+
+            try {
+                let finalBlob;
+                if (isPreview) {
+                    // Preview: giảm JPEG quality xuống 65%, giữ nguyên kích thước pixel
+                    finalBlob = await compressBlob(sourceBlob, 1, 0.65);
+                    if (window.showToast) window.showToast('Exporting preview quality...', 'info');
+                } else {
+                    // Max Size: giữ blob gốc không thay đổi
+                    finalBlob = sourceBlob;
+                }
+
+                const blobUrl = URL.createObjectURL(finalBlob);
                 const a = document.createElement('a');
                 a.href = blobUrl;
-                a.download = `Studio-Export-${Date.now()}.${ext}`;
+                a.download = `Studio-${isPreview ? 'Preview' : 'Export'}-${Date.now()}.${ext}`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
+                // Giải phóng URL sau 5s
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
 
                 closeDownloadModal();
-                if (window.showToast) window.showToast("Image stored locally", "success");
-            }, 600);
+                if (window.showToast) window.showToast('Download complete!', 'success');
+            } catch (err) {
+                console.error('Download error', err);
+                if (window.showToast) window.showToast('Export failed', 'error');
+            }
         });
     }
 });
