@@ -467,6 +467,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // Selection/Crop state (managed by CapCut Fixed Frame system below)
     window.currentCropPreset = null; // Share with app.js
 
+    function setToolButtonState(button, isActive) {
+        if (!button) return;
+
+        button.classList.toggle('bg-slate-900', isActive);
+        button.classList.toggle('text-white', isActive);
+        button.classList.toggle('hover:bg-slate-50', !isActive);
+        button.classList.toggle('text-slate-500', !isActive);
+        button.classList.toggle('hover:text-slate-900', !isActive);
+        button.blur();
+    }
+
     function applyTransform() {
         if (!el.imageViewerContainer) return;
         
@@ -490,16 +501,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Update Buttons UI
         if (tool === 'select') {
-            btnSelectTool.classList.add('bg-slate-900', 'text-white');
-            btnSelectTool.classList.remove('text-slate-500', 'hover:bg-slate-50');
-            btnHandTool.classList.remove('bg-slate-900', 'text-white');
-            btnHandTool.classList.add('text-slate-500', 'hover:bg-slate-50');
+            setToolButtonState(btnSelectTool, true);
+            setToolButtonState(btnHandTool, false);
             if (viewerContainer) viewerContainer.style.cursor = 'default';
         } else {
-            btnHandTool.classList.add('bg-slate-900', 'text-white');
-            btnHandTool.classList.remove('text-slate-500', 'hover:bg-slate-50');
-            btnSelectTool.classList.remove('bg-slate-900', 'text-white');
-            btnSelectTool.classList.add('text-slate-500', 'hover:bg-slate-50');
+            setToolButtonState(btnHandTool, true);
+            setToolButtonState(btnSelectTool, false);
             if (viewerContainer) viewerContainer.style.cursor = 'grab';
         }
         
@@ -512,8 +519,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Prevent shortcuts if user is typing in an input (not currently many, but good practice)
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-        if (key === 'v') setTool('select');
-        if (key === 'h') setTool('pan');
+        if (key === 'v') {
+            e.preventDefault();
+            setTool('select');
+        }
+        if (key === 'h') {
+            e.preventDefault();
+            setTool('pan');
+        }
         if (key === '+') btnZoomIn.click();
         if (key === '-') btnZoomOut.click();
         if (key === '0') btnFitScreen.click();
