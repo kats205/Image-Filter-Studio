@@ -125,7 +125,8 @@ public class ImageProcessingService : IImageProcessingService
                 });
                 break;
             case "sharpen":
-                float k = t; // k từ 0 đến 1.0
+                if (t <= 0.001f) break; // intensity = 0 → không áp dụng gì cả (ảnh gốc)
+                float k = t * 1.5f; // scale strength: tối đa k=1.5 để sắc nét mạnh hơn ở 100%
                 float center = 1f + 4f * k;
                 float edge = -k;
 

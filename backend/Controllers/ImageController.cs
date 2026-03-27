@@ -36,7 +36,7 @@ namespace backend.Controllers
             }
 
             // Kiểm tra MIME type (chỉ cho phép các định dạng ảnh phổ biến)
-            var allowedMimeTypes = new[] { "image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp", "image/svg+xml" };
+            var allowedMimeTypes = new[] { "image/jpeg", "image/png", "image/webp", "image/bmp", "image/svg+xml" };
             if (string.IsNullOrEmpty(file.ContentType) || !allowedMimeTypes.Contains(file.ContentType.ToLowerInvariant()))
             {
                 return BadRequest("Sai định dạng. Chỉ chấp nhận các file ảnh hợp lệ.");

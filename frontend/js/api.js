@@ -1,3 +1,55 @@
+/**
+ * createPreviewBlob — Thu nhỏ & nén blob xuống thumbnail chất lượng thấp.
+ * @param {Blob} blob     - ảnh gốc (bất kỳ định dạng)
+ * @param {number} maxDim - cạnh dài tối đa (px), mặc định 480
+ * @param {number} quality- JPEG quality 0-1, mặc định 0.55
+ * @returns {Promise<Blob>}
+ */
+async function createPreviewBlob(blob, maxDim = 480, quality = 0.55) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        const src = URL.createObjectURL(blob);
+        img.onload = () => {
+            URL.revokeObjectURL(src);
+            const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+            const w = Math.round(img.naturalWidth  * scale);
+            const h = Math.round(img.naturalHeight * scale);
+            const canvas = document.createElement('canvas');
+            canvas.width  = w;
+            canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            canvas.toBlob(resolve, 'image/jpeg', quality);
+        };
+        img.onerror = () => { URL.revokeObjectURL(src); resolve(blob); }; // fallback: gửi gốc
+        img.src = src;
+    });
+}
+
+/**
+ * compressBlob — Nén blob theo quality/scale cho Preview Download.
+ * @param {Blob} blob
+ * @param {number} scale   - 0-1, tỉ lệ thu nhỏ kích thước (1 = giữ nguyên)
+ * @param {number} quality - JPEG quality 0-1
+ */
+async function compressBlob(blob, scale = 1, quality = 0.65) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        const src = URL.createObjectURL(blob);
+        img.onload = () => {
+            URL.revokeObjectURL(src);
+            const w = Math.round(img.naturalWidth  * scale);
+            const h = Math.round(img.naturalHeight * scale);
+            const canvas = document.createElement('canvas');
+            canvas.width  = w;
+            canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            canvas.toBlob(resolve, 'image/jpeg', quality);
+        };
+        img.onerror = () => { URL.revokeObjectURL(src); resolve(blob); };
+        img.src = src;
+    });
+}
+
 const BASE_URL = 'http://localhost:5000/api'; // Đảm bảo port đúng với backend
 
 async function uploadImage(file) {

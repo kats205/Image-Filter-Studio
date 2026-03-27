@@ -967,6 +967,15 @@
                       Wide 16:9
                     </button>
                   </div>
+                  <!-- Crop Action Buttons -->
+                  <div id="crop-action-buttons" class="hidden mt-4 flex gap-3">
+                    <button id="btn-apply-crop" class="flex-1 py-3 px-4 rounded-xl bg-slate-900 text-white font-bold text-[11px] hover:bg-slate-700 transition-colors shadow-sm">
+                      Apply Crop
+                    </button>
+                    <button id="btn-cancel-crop" class="flex-1 py-3 px-4 rounded-xl border border-slate-200 bg-white text-slate-600 font-bold text-[11px] hover:bg-slate-50 transition-colors shadow-sm">
+                      Cancel
+                    </button>
+                  </div>
                 </section>
               </div>
 
@@ -1108,67 +1117,20 @@
               <!-- 3. HISTORY TAB CONTENT -->
               <div
                 id="tab-content-history"
-                class="tab-pane hidden flex flex-col gap-8"
+                class="tab-pane hidden flex flex-col gap-4"
               >
-                <!-- Timeline Section -->
-                <section class="flex-1 flex flex-col min-h-0">
-                  <label
-                    class="text-[10px] font-extrabold tracking-[0.15em] text-slate-400 uppercase mb-4 block"
-                    >Step History</label
-                  >
-                  <div class="space-y-4 overflow-y-auto no-scrollbar pr-1">
-                    <!-- Current Active Step -->
-                    <div
-                      class="flex items-start gap-4 p-4 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl group cursor-default"
-                    >
-                      <div class="p-2 bg-slate-800 rounded-lg">
-                        <i
-                          data-lucide="sparkles"
-                          class="w-4 h-4 text-white"
-                        ></i>
-                      </div>
-                      <div class="flex-1 min-w-0">
-                        <h4
-                          class="text-[11px] font-bold text-white leading-tight"
-                        >
-                          Project Ready
-                        </h4>
-                        <p class="text-[10px] text-slate-400 mt-0.5">
-                          Baseline established
-                        </p>
-                      </div>
-                      <div class="flex flex-col items-end gap-1">
-                        <span
-                          class="bg-emerald-500/20 text-emerald-400 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tighter"
-                          >Current</span
-                        >
-                      </div>
-                    </div>
-
-                    <!-- Previous Step -->
-                    <div
-                      class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 group opacity-70"
-                    >
-                      <div class="p-2 bg-white rounded-lg shadow-sm">
-                        <i
-                          data-lucide="upload"
-                          class="w-4 h-4 text-slate-900"
-                        ></i>
-                      </div>
-                      <div class="flex-1 min-w-0">
-                        <h4
-                          class="text-[11px] font-bold text-slate-900 leading-tight"
-                        >
-                          Image Uploaded
-                        </h4>
-                        <p class="text-[10px] text-slate-400 mt-0.5">
-                          Source file received
-                        </p>
-                      </div>
-                      <i data-lucide="check" class="w-4 h-4 text-slate-300"></i>
-                    </div>
+                <label class="text-[10px] font-extrabold tracking-[0.15em] text-slate-400 uppercase block">
+                  Step History
+                </label>
+                <!-- Empty state -->
+                <div id="history-empty-state" class="flex flex-col items-center justify-center py-12 gap-3 text-center">
+                  <div class="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-300">
+                    <i data-lucide="history" class="w-6 h-6"></i>
                   </div>
-                </section>
+                  <p class="text-[11px] text-slate-400 font-medium">No edits yet.<br>Upload an image to get started.</p>
+                </div>
+                <!-- Live history list — populated by app.js -->
+                <div id="history-list" class="flex flex-col gap-2 overflow-y-auto no-scrollbar"></div>
               </div>
             </div>
 
