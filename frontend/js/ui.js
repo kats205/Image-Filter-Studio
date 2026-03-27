@@ -213,9 +213,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const iconShow = document.getElementById('compare-icon-show');
             const iconHide = document.getElementById('compare-icon-hide');
             const processedBadge = document.getElementById('processed-badge');
+            const viewerEl = el.imageViewerContainer;
             
             if (isComparing) {
                 // Show Dual Pane
+                if (viewerEl) {
+                    viewerEl.classList.add('compare-active');
+                    viewerEl.classList.remove('single-pane-mode');
+                }
                 el.originPane.classList.remove('hidden');
                 if (processedBadge) {
                     processedBadge.classList.remove('hidden');
@@ -239,6 +244,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (el.syncIcon) el.syncIcon.classList.remove('hidden');
             } else {
                 // Hide Dual Pane
+                if (viewerEl) {
+                    viewerEl.classList.remove('compare-active');
+                    viewerEl.classList.add('single-pane-mode');
+                }
                 el.originPane.classList.add('opacity-0', '-translate-x-8');
                 if (processedBadge) {
                     processedBadge.classList.remove('opacity-100');
