@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const originImage = document.getElementById('origin-image');
     const processedImage = document.getElementById('processed-image');
+    const processedImageFrame = document.getElementById('processed-image-frame');
 
     const updateEditorActionState = () => {
         const historyLength = window.appState.historyStack.length;
@@ -389,14 +390,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (!activeFilterName || !window.appState.originalImageId || sessionBaseIndex < 0) return;
 
-            // Khóa kích thước hiển thị để tránh ảnh bị co lại khi dùng preview nhỏ
+            // Lock the frame size during preview so layout stays stable without cropping.
             const imgEl = processedImage;
-            if (!imgEl._lockedW && imgEl.naturalWidth > 0) {
-                imgEl._lockedW = imgEl.offsetWidth;
-                imgEl._lockedH = imgEl.offsetHeight;
-                imgEl.style.width  = imgEl._lockedW + 'px';
-                imgEl.style.height = imgEl._lockedH + 'px';
-                imgEl.style.objectFit = 'cover';
+            const frameEl = processedImageFrame;
+            if (frameEl && !frameEl._lockedW && imgEl.naturalWidth > 0) {
+                const frameRect = frameEl.getBoundingClientRect();
+                frameEl._lockedW = frameRect.width;
+                frameEl._lockedH = frameRect.height;
+                frameEl.style.width = `${frameEl._lockedW}px`;
+                frameEl.style.height = `${frameEl._lockedH}px`;
             }
 
             clearTimeout(previewTimeout);
@@ -421,14 +423,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const value = e.target.value;
             if (!activeFilterName || !window.appState.originalImageId || sessionBaseIndex < 0) return;
 
-            // Mở khóa kích thước ảnh — updateViewer sẽ cập nhật đúng sau khi lưu history
-            const imgEl = processedImage;
-            if (imgEl._lockedW) {
-                imgEl.style.width  = '';
-                imgEl.style.height = '';
-                imgEl.style.objectFit = '';
-                delete imgEl._lockedW;
-                delete imgEl._lockedH;
+            // Unlock the frame once the full-quality image is committed.
+            const frameEl = processedImageFrame;
+            if (frameEl && frameEl._lockedW) {
+                frameEl.style.width = '';
+                frameEl.style.height = '';
+                delete frameEl._lockedW;
+                delete frameEl._lockedH;
             }
 
             try {
@@ -689,9 +690,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     if (btnDownload) {
-        btnDownload.addEventListener('click', () => {
-            downloadCurrentImage({ ext: 'png', isPreview: false, closeModal: false });
-        });
+        btnDownload.addEventListener('click', openDownloadModal);
     }
     if (btnCloseDownload) btnCloseDownload.addEventListener('click', closeDownloadModal);
     if (downloadModal) downloadModal.addEventListener('click', (e) => { if (e.target === downloadModal) closeDownloadModal(); });
