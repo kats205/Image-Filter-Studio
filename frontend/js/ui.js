@@ -177,15 +177,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 el.thumbIcon.classList.add('hidden');
                 el.thumbPreview.classList.remove('hidden');
                 
-                // Enable toolbar
-                el.floatingToolbarButtons.forEach(btn => {
-                    btn.removeAttribute('disabled');
-                });
-                
-                // Enable download button
-                const btnDownload = document.getElementById('btn-download');
-                if (btnDownload) btnDownload.removeAttribute('disabled');
-                
                 // Show toggle compare button
                 el.compareToggleContainer.classList.remove('hidden');
                 
@@ -473,7 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let panStart = { x: 0, y: 0 };
 
     // Selection/Crop state (managed by CapCut Fixed Frame system below)
-    window.currentCropPreset = 'freeform'; // Share with app.js
+    window.currentCropPreset = null; // Share with app.js
 
     function applyTransform() {
         if (!el.imageViewerContainer) return;
@@ -613,7 +604,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // PROFESSIONAL CROP SYSTEM (Freeform Handles + Fixed Ratio)
     // -------------------------------------------------------------
     let cropFrameActive = false;
-    let cropCurrentPreset = 'freeform';
+    let cropCurrentPreset = null;
 
     // Crop frame state (in display-px, relative to the rendered image's top-left)
     let cropBox = { x: 0, y: 0, w: 0, h: 0 };
