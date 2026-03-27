@@ -12,36 +12,8 @@
       rel="stylesheet"
     />
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <script>
-      tailwind.config = {
-        darkMode: "class",
-        theme: {
-          extend: {
-            colors: {
-              surface: "#f9f9f7",
-              "on-surface": "#1a1c1b",
-              primary: "#000000",
-              "on-primary": "#ffffff",
-              "surface-container-low": "#f4f4f2",
-              "surface-container-lowest": "#ffffff",
-              "surface-container": "#eeeeec",
-              secondary: "#5f5e5e",
-              "outline-variant": "#c4c7c7",
-              "surface-container-high": "#e8e8e6",
-              "surface-variant": "#e2e3e1",
-            },
-            fontFamily: {
-              headline: ["Newsreader", "serif"],
-              body: ["Manrope", "sans-serif"],
-              label: ["Manrope", "sans-serif"],
-              inter: ["Inter", "sans-serif"],
-            },
-          },
-        },
-      };
-    </script>
+    <!-- Tailwind CSS (local build) -->
+    <link href="assets/css/tailwind.css" rel="stylesheet" />
     <style>
       body {
         font-family: "Manrope", sans-serif;
@@ -274,22 +246,22 @@
               <img
                 class="w-32 h-20 object-cover rounded shadow-sm hover:opacity-80 transition-opacity cursor-pointer sample-img"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJP7jhsTGr3hI9mOeGow__1Ln7UOECFsU4LjEJ7oZ_uF_oaTOVpBS0_yzr_xxXlbPBIGJkcqyP5J7d7PLwdvdlVpYKVnuOgvIL-j2uot8LdaGz7Iv6zA_7qxrUlQozSf4N0_EpvzI5FuVJgELEx65uWCLW4DBvfbtJYuI2iWspchCfQsuNw-l75WZ7cj0xYHjVJvkpAzZXSoyyw41v58GXa-3n1spKARjPGv_fyHbWgGg2GLuvI9kOxXnZpPbj9m3i6gt-WFeIvx8D"
-                loading="lazy"
+                loading="eager"
               />
               <img
                 class="w-32 h-20 object-cover rounded shadow-sm hover:opacity-80 transition-opacity cursor-pointer sample-img"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuBH3Bc0SbcAPrgo7mJ6WD6w9R2nnrgv53oMlm_gK6OgR2JWumCohJvy1rq7m4Vwd0Xmi78nq-rogw2SZAXAI1GBV3SUd0eWkMQINvIfLCjkSGNbcwiGa4VOjXz9EPWzkouwzHKL6yaFQ6yp0dSbR_f2tTb4Lb6YsLVaP8VCUa-kvdIb3ThfUwAns769HI888ZjPFSfKK4aBilWIpnLBXWYzHfIGPsvsyFdRGiU3qDKrKwkwE-syDgtwLm5-KWiuBaAQFsYic90DZLcT"
-                loading="lazy"
+                loading="eager"
               />
               <img
                 class="w-32 h-20 object-cover rounded shadow-sm hover:opacity-80 transition-opacity cursor-pointer sample-img"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_pNWEFGO1Hd6zAmIC_3qSLQZQUlrWQalI7R2tZbTgaNcxwiGQzUe3jwOnEhfJ3umHey2u9gznX9dtOy7_wEuR3SewujzxydLCaeQ4CFXT9H33sYhFooO1uJkGK2eK1DjKpPSGz4V_I4U9EVDHHncOskQ6-6ldz2Swr0KE-TBbcxhFNkNFTDQ9VhfpQ8FqyBPID6OIxx8nBG9STt2ooBn63L4mkiGPRaddnxNs5RJhx_KNdCyyoxY-iiv-taAZ2aGoc8puyjtUA7zc"
-                loading="lazy"
+                loading="eager"
               />
               <img
                 class="w-32 h-20 object-cover rounded shadow-sm hover:opacity-80 transition-opacity cursor-pointer sample-img"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuASBNtuUtZ6OFuNM0L8VftrswCsnTVCv6T7zZkyvR6lFHZwznTD_89N2ItKOe36WlT24p9EfdogJYyO9PneINFw2NaI8goqg9yRe7QxZM7Mf9Fa8VrKc8IcPxs7oDdtjAcpKSLOfjzCL2ljhRrqRERmF4SA2XoqmeMNqlZHL-ssWpLh87ay2pfakJDgqmh77rr1V4v4S9jtzrrH9yOuxrH95Orq05RjuXSfDhEcvyYBc6gWNUIvGnf16x9q2QtXQnI54EfGiWsLMGtm"
-                loading="lazy"
+                loading="eager"
               />
             </div>
           </div>
@@ -374,7 +346,7 @@
                 class="absolute inset-0 w-full h-full object-cover pointer-events-none"
                 src="https://images.unsplash.com/photo-1542038784456-1ea8e935640e?q=80&w=2000&auto=format&fit=crop"
                 alt="Original"
-                loading="lazy"
+                loading="eager"
               />
               <div
                 id="landing-slider-original-badge"
@@ -395,7 +367,7 @@
                   id="landing-slider-processed-img"
                   src="https://images.unsplash.com/photo-1542038784456-1ea8e935640e?q=80&w=2000&auto=format&fit=crop"
                   alt="Processed"
-                  loading="lazy"
+                  loading="eager"
                 />
               </div>
 

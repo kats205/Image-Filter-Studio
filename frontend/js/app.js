@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 card.innerHTML = `
                     <div class="w-[52px] h-[52px] rounded-xl overflow-hidden shrink-0 border ${isCurrent ? 'border-slate-700' : 'border-slate-200'} bg-slate-200">
-                        ${thumbUrl ? `<img src="${thumbUrl}" class="w-full h-full object-cover" loading="lazy">` : `<div class="w-full h-full flex items-center justify-center text-slate-400 text-[9px]">No img</div>`}
+                        ${thumbUrl ? `<img src="${thumbUrl}" class="w-full h-full object-cover" loading="eager">` : `<div class="w-full h-full flex items-center justify-center text-slate-400 text-[9px]">No img</div>`}
                     </div>
                     <div class="flex-1 min-w-0">
                         <p class="text-[11px] font-bold leading-snug truncate ${isCurrent ? 'text-white' : 'text-slate-900'}">
