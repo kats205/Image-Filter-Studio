@@ -467,6 +467,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     let currentZoom = 1.0;
     let currentTool = 'select'; // 'select' or 'pan'
+    let isEditorFocusMode = false;
+    let focusModePrevZoom = 1.0;
+    let focusModePrevPan = { x: 0, y: 0 };
 
     // NEW state variables for Workspace Interactivity
     let panOffset = { x: 0, y: 0 };
@@ -505,6 +508,63 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function zoomImageNearFullscreen() {
+        const workspaceEl = document.getElementById('editor-workspace');
+        const frameEl = document.getElementById('processed-image-frame');
+        if (!workspaceEl || !frameEl) return;
+
+        const workspaceRect = workspaceEl.getBoundingClientRect();
+        const frameRect = frameEl.getBoundingClientRect();
+        if (!workspaceRect.width || !workspaceRect.height || !frameRect.width || !frameRect.height) return;
+
+        const targetZoom = Math.min(
+            (workspaceRect.width * 0.96) / frameRect.width,
+            (workspaceRect.height * 0.9) / frameRect.height
+        );
+
+        currentZoom = Math.min(3.0, Math.max(0.25, targetZoom));
+        panOffset = { x: 0, y: 0 };
+        applyTransform();
+    }
+
+    function toggleEditorFocusMode(forceState = null) {
+        if (!el.editorView) return;
+        const nextState = typeof forceState === 'boolean' ? forceState : !isEditorFocusMode;
+        if (nextState === isEditorFocusMode) return;
+
+        if (nextState) {
+            focusModePrevZoom = currentZoom;
+            focusModePrevPan = { ...panOffset };
+        }
+
+        isEditorFocusMode = nextState;
+        el.editorView.classList.toggle('editor-focus-mode', isEditorFocusMode);
+
+        if (btnFullscreen) {
+            btnFullscreen.classList.toggle('bg-slate-900', isEditorFocusMode);
+            btnFullscreen.classList.toggle('text-white', isEditorFocusMode);
+            btnFullscreen.classList.toggle('hover:bg-slate-50', !isEditorFocusMode);
+            btnFullscreen.classList.toggle('text-slate-500', !isEditorFocusMode);
+            btnFullscreen.classList.toggle('hover:text-slate-900', !isEditorFocusMode);
+        }
+
+        if (isEditorFocusMode) {
+            requestAnimationFrame(() => {
+                zoomImageNearFullscreen();
+                if (cropFrameActive) renderCropFrame();
+            });
+            if (window.showToast) window.showToast('Focus mode enabled', 'info');
+        } else {
+            currentZoom = focusModePrevZoom;
+            panOffset = { ...focusModePrevPan };
+            applyTransform();
+            requestAnimationFrame(() => {
+                if (cropFrameActive) renderCropFrame();
+            });
+            if (window.showToast) window.showToast('Focus mode disabled', 'info');
+        }
+    }
+
     function setTool(tool) {
         currentTool = tool;
         
@@ -535,6 +595,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (key === 'h') {
             e.preventDefault();
             setTool('pan');
+        }
+        if (key === 'escape' && isEditorFocusMode) {
+            e.preventDefault();
+            toggleEditorFocusMode(false);
         }
         if (key === '+') btnZoomIn.click();
         if (key === '-') btnZoomOut.click();
@@ -569,13 +633,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnFullscreen) {
         btnFullscreen.addEventListener('click', () => {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => {
-                    if (window.showToast) window.showToast("Error enabling fullscreen", "error");
-                });
-            } else {
-                document.exitFullscreen();
-            }
+            toggleEditorFocusMode();
         });
     }
 
@@ -590,6 +648,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial tool state & apply initial transform
     setTool('select');
     applyTransform();
+
+    window.addEventListener('resize', () => {
+        if (isEditorFocusMode) {
+            requestAnimationFrame(() => {
+                zoomImageNearFullscreen();
+                if (cropFrameActive) renderCropFrame();
+            });
+            return;
+        }
+        if (cropFrameActive) {
+            requestAnimationFrame(() => renderCropFrame());
+        }
+    });
 
     // -------------------------------------------------------------
     // PAN TOOL INTERACTION LOOP
