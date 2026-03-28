@@ -727,13 +727,34 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Helper: get the rendered image bounds (px relative to pane) ──
     function getImgBounds() {
         if (_compActive && _compImgABounds) return { ..._compImgABounds };
+
         const paneRect = el.processedPane.getBoundingClientRect();
         const imgRect  = el.processedImage.getBoundingClientRect();
+
+        // For object-fit: contain, the rendered bitmap can be smaller than the <img> box.
+        // Crop must follow the rendered bitmap area, not the whole frame/card.
+        let drawLeft = imgRect.left;
+        let drawTop  = imgRect.top;
+        let drawW    = imgRect.width;
+        let drawH    = imgRect.height;
+
+        const nW = el.processedImage?.naturalWidth || 0;
+        const nH = el.processedImage?.naturalHeight || 0;
+        if (nW > 0 && nH > 0 && imgRect.width > 0 && imgRect.height > 0) {
+            const scale = Math.min(imgRect.width / nW, imgRect.height / nH);
+            const fittedW = nW * scale;
+            const fittedH = nH * scale;
+            drawLeft = imgRect.left + (imgRect.width - fittedW) / 2;
+            drawTop  = imgRect.top  + (imgRect.height - fittedH) / 2;
+            drawW = fittedW;
+            drawH = fittedH;
+        }
+
         return {
-            x: imgRect.left - paneRect.left,
-            y: imgRect.top  - paneRect.top,
-            w: imgRect.width,
-            h: imgRect.height,
+            x: drawLeft - paneRect.left,
+            y: drawTop  - paneRect.top,
+            w: drawW,
+            h: drawH,
         };
     }
 
