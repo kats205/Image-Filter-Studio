@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
         landingView: document.getElementById('landing-view'),
         editorView: document.getElementById('editor-view'),
         navEditorLink: document.getElementById('nav-editor-link'),
+        editorEntryLinks: document.querySelectorAll('[data-open-editor]'),
         btnBackGallery: document.getElementById('btn-back-gallery'),
         
         fileUploads: [
@@ -124,7 +125,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 400);
     }
 
-    if (el.navEditorLink) {
+    if (el.editorEntryLinks && el.editorEntryLinks.length > 0) {
+        el.editorEntryLinks.forEach(linkEl => {
+            linkEl.addEventListener('click', (e) => {
+                e.preventDefault();
+                showEditor();
+            });
+        });
+    } else if (el.navEditorLink) {
+        // Fallback for legacy markup
         el.navEditorLink.addEventListener('click', (e) => {
             e.preventDefault();
             showEditor();
@@ -467,6 +476,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     let currentZoom = 1.0;
     let currentTool = 'select'; // 'select' or 'pan'
+    let isEditorFocusMode = false;
+    let focusModePrevZoom = 1.0;
+    let focusModePrevPan = { x: 0, y: 0 };
 
     // NEW state variables for Workspace Interactivity
     let panOffset = { x: 0, y: 0 };
@@ -505,7 +517,64 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function setTool(tool) {
+    function zoomImageNearFullscreen() {
+        const workspaceEl = document.getElementById('editor-workspace');
+        const frameEl = document.getElementById('processed-image-frame');
+        if (!workspaceEl || !frameEl) return;
+
+        const workspaceRect = workspaceEl.getBoundingClientRect();
+        const frameRect = frameEl.getBoundingClientRect();
+        if (!workspaceRect.width || !workspaceRect.height || !frameRect.width || !frameRect.height) return;
+
+        const targetZoom = Math.min(
+            (workspaceRect.width * 0.96) / frameRect.width,
+            (workspaceRect.height * 0.9) / frameRect.height
+        );
+
+        currentZoom = Math.min(3.0, Math.max(0.25, targetZoom));
+        panOffset = { x: 0, y: 0 };
+        applyTransform();
+    }
+
+    function toggleEditorFocusMode(forceState = null) {
+        if (!el.editorView) return;
+        const nextState = typeof forceState === 'boolean' ? forceState : !isEditorFocusMode;
+        if (nextState === isEditorFocusMode) return;
+
+        if (nextState) {
+            focusModePrevZoom = currentZoom;
+            focusModePrevPan = { ...panOffset };
+        }
+
+        isEditorFocusMode = nextState;
+        el.editorView.classList.toggle('editor-focus-mode', isEditorFocusMode);
+
+        if (btnFullscreen) {
+            btnFullscreen.classList.toggle('bg-slate-900', isEditorFocusMode);
+            btnFullscreen.classList.toggle('text-white', isEditorFocusMode);
+            btnFullscreen.classList.toggle('hover:bg-slate-50', !isEditorFocusMode);
+            btnFullscreen.classList.toggle('text-slate-500', !isEditorFocusMode);
+            btnFullscreen.classList.toggle('hover:text-slate-900', !isEditorFocusMode);
+        }
+
+        if (isEditorFocusMode) {
+            requestAnimationFrame(() => {
+                zoomImageNearFullscreen();
+                if (cropFrameActive) renderCropFrame();
+            });
+            if (window.showToast) window.showToast('Full Screen mode enabled', 'info');
+        } else {
+            currentZoom = focusModePrevZoom;
+            panOffset = { ...focusModePrevPan };
+            applyTransform();
+            requestAnimationFrame(() => {
+                if (cropFrameActive) renderCropFrame();
+            });
+            if (window.showToast) window.showToast('Full Screen mode disabled', 'info');
+        }
+    }
+
+    function setTool(tool, silent = false) {
         currentTool = tool;
         
         // Update Buttons UI
@@ -519,7 +588,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (viewerContainer) viewerContainer.style.cursor = 'grab';
         }
         
-        if (window.showToast) window.showToast(`${tool.charAt(0).toUpperCase() + tool.slice(1)} tool active`);
+        if (!silent && window.showToast) window.showToast(`${tool.charAt(0).toUpperCase() + tool.slice(1)} tool active`);
     }
 
     // Keyboard Shortcuts
@@ -535,6 +604,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (key === 'h') {
             e.preventDefault();
             setTool('pan');
+        }
+        if (key === 'escape' && isEditorFocusMode) {
+            e.preventDefault();
+            toggleEditorFocusMode(false);
         }
         if (key === '+') btnZoomIn.click();
         if (key === '-') btnZoomOut.click();
@@ -569,13 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnFullscreen) {
         btnFullscreen.addEventListener('click', () => {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => {
-                    if (window.showToast) window.showToast("Error enabling fullscreen", "error");
-                });
-            } else {
-                document.exitFullscreen();
-            }
+            toggleEditorFocusMode();
         });
     }
 
@@ -588,8 +655,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initial tool state & apply initial transform
-    setTool('select');
+    setTool('select', true);
     applyTransform();
+
+    window.addEventListener('resize', () => {
+        if (isEditorFocusMode) {
+            requestAnimationFrame(() => {
+                zoomImageNearFullscreen();
+                if (cropFrameActive) renderCropFrame();
+            });
+            return;
+        }
+        if (cropFrameActive) {
+            requestAnimationFrame(() => renderCropFrame());
+        }
+    });
 
     // -------------------------------------------------------------
     // PAN TOOL INTERACTION LOOP
@@ -705,7 +785,7 @@ document.addEventListener('DOMContentLoaded', () => {
             border-radius:2px;cursor:${h.cursor};
             pointer-events:auto;${h.style}
         `;
-        // Only show corner handles if freeform
+        // Handle visibility is controlled later in renderCropFrame()
         el2.classList.add('crop-handle');
         cropFrame.appendChild(el2);
     });
@@ -727,13 +807,34 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Helper: get the rendered image bounds (px relative to pane) ──
     function getImgBounds() {
         if (_compActive && _compImgABounds) return { ..._compImgABounds };
+
         const paneRect = el.processedPane.getBoundingClientRect();
         const imgRect  = el.processedImage.getBoundingClientRect();
+
+        // For object-fit: contain, the rendered bitmap can be smaller than the <img> box.
+        // Crop must follow the rendered bitmap area, not the whole frame/card.
+        let drawLeft = imgRect.left;
+        let drawTop  = imgRect.top;
+        let drawW    = imgRect.width;
+        let drawH    = imgRect.height;
+
+        const nW = el.processedImage?.naturalWidth || 0;
+        const nH = el.processedImage?.naturalHeight || 0;
+        if (nW > 0 && nH > 0 && imgRect.width > 0 && imgRect.height > 0) {
+            const scale = Math.min(imgRect.width / nW, imgRect.height / nH);
+            const fittedW = nW * scale;
+            const fittedH = nH * scale;
+            drawLeft = imgRect.left + (imgRect.width - fittedW) / 2;
+            drawTop  = imgRect.top  + (imgRect.height - fittedH) / 2;
+            drawW = fittedW;
+            drawH = fittedH;
+        }
+
         return {
-            x: imgRect.left - paneRect.left,
-            y: imgRect.top  - paneRect.top,
-            w: imgRect.width,
-            h: imgRect.height,
+            x: drawLeft - paneRect.left,
+            y: drawTop  - paneRect.top,
+            w: drawW,
+            h: drawH,
         };
     }
 
@@ -773,9 +874,13 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         // Show/hide handles based on preset
-        const isHandle = cropCurrentPreset === 'freeform';
+        // - freeform: all handles
+        // - fixed ratios: corner handles only (resize with locked ratio)
+        const isFreeform = cropCurrentPreset === 'freeform';
         cropFrame.querySelectorAll('.crop-handle').forEach(h2 => {
-            h2.style.display = isHandle ? 'block' : 'none';
+            const handleId = h2.dataset.handle || '';
+            const isCorner = ['nw', 'ne', 'se', 'sw'].includes(handleId);
+            h2.style.display = isFreeform || isCorner ? 'block' : 'none';
         });
 
         // For fixed-ratio, make move cursor visible
@@ -993,7 +1098,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Mouse interaction: RESIZE via handles ────────────────────
     cropFrame.querySelectorAll('.crop-handle').forEach(handleEl => {
         handleEl.addEventListener('mousedown', (e) => {
-            if (cropCurrentPreset !== 'freeform') return; // handles only for freeform
             e.preventDefault();
             e.stopPropagation();
             cropInteraction = {
@@ -1022,14 +1126,53 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // Resize
             const h = cropInteraction.handle;
-            let { x, y, w, h: bh } = sb;
 
-            if (h.includes('e')) { w  = Math.max(20, sb.w + dx); }
-            if (h.includes('s')) { bh = Math.max(20, sb.h + dy); }
-            if (h.includes('w')) { const nw = Math.max(20, sb.w - dx); x = sb.x + (sb.w - nw); w = nw; }
-            if (h.includes('n')) { const nh = Math.max(20, sb.h - dy); y = sb.y + (sb.h - nh); bh = nh; }
+            if (!ratio) {
+                // Freeform resize: width/height can change independently.
+                let { x, y, w, h: bh } = sb;
+                if (h.includes('e')) { w  = Math.max(20, sb.w + dx); }
+                if (h.includes('s')) { bh = Math.max(20, sb.h + dy); }
+                if (h.includes('w')) { const nw = Math.max(20, sb.w - dx); x = sb.x + (sb.w - nw); w = nw; }
+                if (h.includes('n')) { const nh = Math.max(20, sb.h - dy); y = sb.y + (sb.h - nh); bh = nh; }
+                cropBox = { x, y, w, h: bh };
+            } else {
+                // Fixed-ratio resize: keep the opposite corner anchored and lock aspect ratio.
+                const r = ratio.w / ratio.h;
+                const MIN = 20;
 
-            cropBox = { x, y, w, h: bh };
+                let anchorX = sb.x;
+                let anchorY = sb.y;
+                if (h === 'nw') { anchorX = sb.x + sb.w; anchorY = sb.y + sb.h; }
+                if (h === 'ne') { anchorX = sb.x;         anchorY = sb.y + sb.h; }
+                if (h === 'sw') { anchorX = sb.x + sb.w; anchorY = sb.y; }
+                if (h === 'se') { anchorX = sb.x;         anchorY = sb.y; }
+
+                const signX = h.includes('w') ? -1 : 1;
+                const signY = h.includes('n') ? -1 : 1;
+
+                const pointerX = h.includes('e') ? (sb.x + sb.w + dx) : (sb.x + dx);
+                const pointerY = h.includes('s') ? (sb.y + sb.h + dy) : (sb.y + dy);
+
+                const rawW = Math.abs(pointerX - anchorX);
+                const rawH = Math.abs(pointerY - anchorY);
+                let targetW = rawW;
+                let targetH = rawH;
+
+                if (rawH <= 0 || rawW / rawH > r) targetH = rawW / r;
+                else targetW = rawH * r;
+
+                const maxWByX = signX > 0 ? (ib.w - anchorX) : anchorX;
+                const maxHByY = signY > 0 ? (ib.h - anchorY) : anchorY;
+                const maxW = Math.max(MIN, Math.min(maxWByX, maxHByY * r));
+
+                const minW = Math.max(MIN, MIN * r);
+                targetW = Math.max(minW, Math.min(targetW, maxW));
+                targetH = targetW / r;
+
+                const x = signX > 0 ? anchorX : (anchorX - targetW);
+                const y = signY > 0 ? anchorY : (anchorY - targetH);
+                cropBox = { x, y, w: targetW, h: targetH };
+            }
         }
 
         clampCropBox(ratio);

@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Image Filter Studio | Refine your vision, effortlessly.</title>
+    <link rel="icon" type="image/png" href="assets/web-icon.png" />
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com" rel="preconnect" />
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
@@ -240,6 +241,52 @@
         right: 0.75rem;
       }
 
+      /* In-app focus mode (not browser fullscreen) */
+      #editor-view.editor-focus-mode > header {
+        display: none;
+      }
+
+      #editor-view.editor-focus-mode #sidebar-panel {
+        width: 0 !important;
+        min-width: 0 !important;
+        border-left-width: 0 !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        overflow: hidden !important;
+      }
+
+      #editor-view.editor-focus-mode #btn-toggle-sidebar {
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+
+      #editor-view.editor-focus-mode #editor-workspace {
+        padding: 0.75rem;
+      }
+
+      #editor-view.editor-focus-mode #workspace-content {
+        max-width: 100%;
+      }
+
+      #editor-view.editor-focus-mode .editor-image-viewer {
+        max-height: calc(100vh - 5.5rem);
+        padding: 0.25rem;
+      }
+
+      #editor-view.editor-focus-mode .editor-image-frame {
+        width: min(100%, 1600px);
+        height: min(100%, calc(100vh - 6.25rem));
+      }
+
+      #editor-view.editor-focus-mode #compare-toggle-container {
+        top: 0.75rem;
+        left: 0.75rem;
+      }
+
+      #editor-view.editor-focus-mode #floating-toolbar {
+        bottom: 0.75rem;
+      }
+
       @media (max-width: 1024px) {
         .editor-image-viewer {
           max-height: calc(100vh - 15rem);
@@ -294,7 +341,7 @@
     <!-- LANDING VIEW -->
     <div id="landing-view" class="w-full view-transition">
       <header
-        class="bg-[#f9f9f7] flex justify-between items-center w-full px-8 py-6 max-w-none fixed top-0 z-50 border-b relative"
+        class="bg-[#f9f9f7] flex justify-between items-center w-full px-8 h-20 max-w-none fixed top-0 z-50 border-b relative"
         style="border-color: #e4e4e0"
       >
         <div class="font-serif text-2xl font-bold text-black tracking-tighter">
@@ -316,6 +363,7 @@
             class="group relative text-secondary font-sans text-sm tracking-wide uppercase hover:text-primary transition-colors duration-300 pb-1"
             href="#"
             id="nav-editor-link"
+            data-open-editor
           >
             Editor
             <span
@@ -326,10 +374,11 @@
         <div class="w-[60px] md:w-auto"></div>
       </header>
 
-      <main class="pt-24" id="landing-main">
+      <main class="pt-20" id="landing-main">
         <!-- Hero Section -->
         <section
-          class="min-h-[870px] flex flex-col items-center justify-center px-6 text-center bg-surface"
+          class="min-h-[870px] flex flex-col items-center justify-start px-6 text-center bg-surface"
+          style="padding-top: 4rem"
         >
           <h1
             class="hero-title text-[48px] md:text-[80px] leading-[1.15] font-headline font-bold tracking-tight text-primary max-w-5xl mb-16"
@@ -458,7 +507,9 @@
                 into digital captures.
               </p>
               <button
-                class="mt-4 px-6 py-3 border border-outline-variant rounded hover:bg-surface-container-lowest transition-colors font-bold text-sm text-primary group"
+                id="btn-explore-engine"
+                data-open-editor
+                class="mt-4 px-6 py-3 rounded-lg border border-slate-300 bg-white text-primary font-bold text-sm shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-md active:translate-y-0 active:scale-[0.98]"
               >
                 Explore Processing Engine
               </button>
