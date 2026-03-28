@@ -80,3 +80,6 @@ ANTIGRAVITY.md
 
 #properties
 appsetting.Development.json
+
+# Frontend Node tooling
+frontend/node_modules/

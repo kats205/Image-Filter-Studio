@@ -18,12 +18,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const originImage = document.getElementById('origin-image');
     const processedImage = document.getElementById('processed-image');
+    const processedImageFrame = document.getElementById('processed-image-frame');
+
+    const updateEditorActionState = () => {
+        const historyLength = window.appState.historyStack.length;
+        const currentIndex = window.appState.currentIndex;
+        const hasImage = historyLength > 0 && currentIndex >= 0;
+        const downloadButton = document.getElementById('btn-download');
+        const undoButton = document.getElementById('btn-undo');
+        const redoButton = document.getElementById('btn-redo');
+
+        if (downloadButton) downloadButton.disabled = !hasImage;
+        if (undoButton) undoButton.disabled = !(hasImage && currentIndex > 0);
+        if (redoButton) redoButton.disabled = !(hasImage && currentIndex < historyLength - 1);
+    };
+    window.updateEditorActionState = updateEditorActionState;
 
     const updateViewer = () => {
         if (window.appState.currentIndex >= 0) {
             const currentItem = window.appState.historyStack[window.appState.currentIndex];
             processedImage.src = currentItem.url;
         }
+        updateEditorActionState();
         renderHistoryPanel();
     };
 
@@ -129,7 +145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 card.innerHTML = `
                     <div class="w-[52px] h-[52px] rounded-xl overflow-hidden shrink-0 border ${isCurrent ? 'border-slate-700' : 'border-slate-200'} bg-slate-200">
-                        ${thumbUrl ? `<img src="${thumbUrl}" class="w-full h-full object-cover" loading="lazy">` : `<div class="w-full h-full flex items-center justify-center text-slate-400 text-[9px]">No img</div>`}
+                        ${thumbUrl ? `<img src="${thumbUrl}" class="w-full h-full object-cover" loading="eager">` : `<div class="w-full h-full flex items-center justify-center text-slate-400 text-[9px]">No img</div>`}
                     </div>
                     <div class="flex-1 min-w-0">
                         <p class="text-[11px] font-bold leading-snug truncate ${isCurrent ? 'text-white' : 'text-slate-900'}">
@@ -245,7 +261,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     pushToHistory(newBlob, `${action.actionName} (${action.intensity})`);
                 }
             }
-            if (window.showToast) window.showToast("Session recovered successfully", "success");
+            
+            // Re-render and Enable UI
+            updateViewer();
+            if (window.uiState?.floatingToolbarButtons) {
+                window.uiState.floatingToolbarButtons.forEach(btn => btn.removeAttribute('disabled'));
+            }
+            if (window.showToast) window.showToast("Canvas restored from cloud", "success");
         } catch (e) {
             console.error("Rehydration failed:", e);
             localStorage.removeItem('currentImageId');
@@ -264,12 +286,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            if (window.showToast) window.showToast("Uploading image...", "info");
-            const data = await uploadImage(file);
-            window.appState.originalImageId = data.imageId;
-            localStorage.setItem('currentImageId', data.imageId);
-
-            // Push original state (sourceRegion set after image loads via onload)
+            // Always create local state first so download works immediately after upload.
+            window.appState.originalImageId = null;
+            localStorage.removeItem('currentImageId');
             window.appState.historyStack = [];
             window.appState.currentIndex = -1;
             pushToHistory(file, 'Original Upload', { x: 0, y: 0, w: 0, h: 0 });
@@ -287,11 +306,26 @@ document.addEventListener('DOMContentLoaded', async () => {
                 processedImage.removeEventListener('load', setOrigDims);
             };
             processedImage.addEventListener('load', setOrigDims);
+            if (processedImage.complete && processedImage.naturalWidth > 0) {
+                setOrigDims();
+            }
+
+            if (window.showToast) window.showToast("Uploading image...", "info");
+            const data = await uploadImage(file);
+            window.appState.originalImageId = data.imageId;
+            localStorage.setItem('currentImageId', data.imageId);
+
+            // History state already enables the proper header actions via updateViewer.
+            if (window.uiState?.floatingToolbarButtons) {
+                window.uiState.floatingToolbarButtons.forEach(btn => btn.removeAttribute('disabled'));
+            }
 
             if (window.showToast) window.showToast("Ready for editing", "success");
         } catch (error) {
             console.error(error);
-            if (window.showToast) window.showToast("Upload failed", "error");
+            if (window.showToast) {
+                window.showToast("Server upload failed, but local download is still available", "info");
+            }
         }
     };
 
@@ -356,14 +390,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (!activeFilterName || !window.appState.originalImageId || sessionBaseIndex < 0) return;
 
-            // Khóa kích thước hiển thị để tránh ảnh bị co lại khi dùng preview nhỏ
+            // Lock the frame size during preview so layout stays stable without cropping.
             const imgEl = processedImage;
-            if (!imgEl._lockedW && imgEl.naturalWidth > 0) {
-                imgEl._lockedW = imgEl.offsetWidth;
-                imgEl._lockedH = imgEl.offsetHeight;
-                imgEl.style.width  = imgEl._lockedW + 'px';
-                imgEl.style.height = imgEl._lockedH + 'px';
-                imgEl.style.objectFit = 'cover';
+            const frameEl = processedImageFrame;
+            if (frameEl && !frameEl._lockedW && imgEl.naturalWidth > 0) {
+                const frameRect = frameEl.getBoundingClientRect();
+                frameEl._lockedW = frameRect.width;
+                frameEl._lockedH = frameRect.height;
+                frameEl.style.width = `${frameEl._lockedW}px`;
+                frameEl.style.height = `${frameEl._lockedH}px`;
             }
 
             clearTimeout(previewTimeout);
@@ -388,14 +423,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const value = e.target.value;
             if (!activeFilterName || !window.appState.originalImageId || sessionBaseIndex < 0) return;
 
-            // Mở khóa kích thước ảnh — updateViewer sẽ cập nhật đúng sau khi lưu history
-            const imgEl = processedImage;
-            if (imgEl._lockedW) {
-                imgEl.style.width  = '';
-                imgEl.style.height = '';
-                imgEl.style.objectFit = '';
-                delete imgEl._lockedW;
-                delete imgEl._lockedH;
+            // Unlock the frame once the full-quality image is committed.
+            const frameEl = processedImageFrame;
+            if (frameEl && frameEl._lockedW) {
+                frameEl.style.width = '';
+                frameEl.style.height = '';
+                delete frameEl._lockedW;
+                delete frameEl._lockedH;
             }
 
             try {
@@ -534,6 +568,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             } finally {
                 window.cropState = null;
                 if (window.deactivateCropMode) window.deactivateCropMode();
+                if (cropPresetBtns) cropPresetBtns.forEach(b => b.classList.remove('active'));
             }
         });
     }
@@ -544,6 +579,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnCancelCrop.addEventListener('click', () => {
             if (window.deactivateCropMode) window.deactivateCropMode();
             if (processedImage) processedImage.style.transform = '';
+            if (cropPresetBtns) cropPresetBtns.forEach(b => b.classList.remove('active'));
             if (window.showToast) window.showToast('Crop đã hủy', 'info');
         });
     }
@@ -553,6 +589,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // -------------------------------------------------------------
     const btnUndo = document.getElementById('btn-undo');
     const btnRedo = document.getElementById('btn-redo');
+
+    updateEditorActionState();
 
     window.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -589,19 +627,71 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnCloseDownload = document.getElementById('btn-close-download');
     const btnProcessDownload = document.getElementById('btn-process-download');
 
+    const resolveDownloadSourceBlob = async () => {
+        const currentEntry = window.appState.historyStack[window.appState.currentIndex];
+        if (currentEntry?.blob) return currentEntry.blob;
+
+        const fallbackSrc = processedImage?.src || originImage?.src;
+        if (!fallbackSrc) return null;
+
+        const response = await fetch(fallbackSrc);
+        if (!response.ok) return null;
+        return await response.blob();
+    };
+
     const openDownloadModal = () => {
+        if (!downloadModal || !downloadCard) return;
         downloadModal.classList.remove('opacity-0', 'pointer-events-none');
-        downloadCard.classList.remove('translate-y-12', 'scale-90', 'opacity-0');
-        downloadCard.classList.add('translate-y-0', 'scale-100', 'opacity-100');
+        // Trigger card animation
+        requestAnimationFrame(() => {
+            downloadCard.classList.remove('translate-y-12', 'scale-90', 'opacity-0');
+            downloadCard.classList.add('translate-y-0', 'scale-100', 'opacity-100');
+        });
     };
 
     const closeDownloadModal = () => {
+        if (!downloadModal || !downloadCard) return;
         downloadModal.classList.add('opacity-0', 'pointer-events-none');
         downloadCard.classList.add('translate-y-12', 'scale-90', 'opacity-0');
         downloadCard.classList.remove('translate-y-0', 'scale-100', 'opacity-100');
     };
 
-    if (btnDownload) btnDownload.addEventListener('click', openDownloadModal);
+    const downloadCurrentImage = async ({ ext = 'png', isPreview = false, closeModal = false } = {}) => {
+        if (window.showToast) window.showToast('Preparing export...', 'info');
+
+        try {
+            const sourceBlob = await resolveDownloadSourceBlob();
+            if (!sourceBlob) {
+                if (window.showToast) window.showToast('No image to download', 'error');
+                return;
+            }
+
+            let finalBlob = sourceBlob;
+            if (isPreview) {
+                finalBlob = await compressBlob(sourceBlob, 1, 0.65);
+                if (window.showToast) window.showToast('Exporting preview quality...', 'info');
+            }
+
+            const blobUrl = URL.createObjectURL(finalBlob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = `Studio-${isPreview ? 'Preview' : 'Export'}-${Date.now()}.${ext}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+
+            if (closeModal) closeDownloadModal();
+            if (window.showToast) window.showToast('Download complete!', 'success');
+        } catch (err) {
+            console.error('Download error', err);
+            if (window.showToast) window.showToast('Export failed', 'error');
+        }
+    };
+
+    if (btnDownload) {
+        btnDownload.addEventListener('click', openDownloadModal);
+    }
     if (btnCloseDownload) btnCloseDownload.addEventListener('click', closeDownloadModal);
     if (downloadModal) downloadModal.addEventListener('click', (e) => { if (e.target === downloadModal) closeDownloadModal(); });
 
@@ -624,43 +714,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (btnProcessDownload) {
         btnProcessDownload.addEventListener('click', async () => {
-            if (window.appState.currentIndex < 0) return;
-            if (window.showToast) window.showToast('Preparing export...', 'info');
-
-            const sourceBlob = window.appState.historyStack[window.appState.currentIndex].blob;
             const activeFormatBtn = document.querySelector('.export-format-btn.border-slate-900');
             const activeQualityBtn = document.querySelector('.export-quality-btn.border-slate-900');
 
             const ext        = activeFormatBtn ? activeFormatBtn.innerText.trim().toLowerCase() : 'jpg';
             const isPreview  = activeQualityBtn ? activeQualityBtn.innerText.includes('Preview') : false;
-
-            try {
-                let finalBlob;
-                if (isPreview) {
-                    // Preview: giảm JPEG quality xuống 65%, giữ nguyên kích thước pixel
-                    finalBlob = await compressBlob(sourceBlob, 1, 0.65);
-                    if (window.showToast) window.showToast('Exporting preview quality...', 'info');
-                } else {
-                    // Max Size: giữ blob gốc không thay đổi
-                    finalBlob = sourceBlob;
-                }
-
-                const blobUrl = URL.createObjectURL(finalBlob);
-                const a = document.createElement('a');
-                a.href = blobUrl;
-                a.download = `Studio-${isPreview ? 'Preview' : 'Export'}-${Date.now()}.${ext}`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                // Giải phóng URL sau 5s
-                setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
-
-                closeDownloadModal();
-                if (window.showToast) window.showToast('Download complete!', 'success');
-            } catch (err) {
-                console.error('Download error', err);
-                if (window.showToast) window.showToast('Export failed', 'error');
-            }
+            downloadCurrentImage({ ext, isPreview, closeModal: true });
         });
     }
 });

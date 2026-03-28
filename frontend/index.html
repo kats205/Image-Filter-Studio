@@ -12,36 +12,8 @@
       rel="stylesheet"
     />
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-    <script>
-      tailwind.config = {
-        darkMode: "class",
-        theme: {
-          extend: {
-            colors: {
-              surface: "#f9f9f7",
-              "on-surface": "#1a1c1b",
-              primary: "#000000",
-              "on-primary": "#ffffff",
-              "surface-container-low": "#f4f4f2",
-              "surface-container-lowest": "#ffffff",
-              "surface-container": "#eeeeec",
-              secondary: "#5f5e5e",
-              "outline-variant": "#c4c7c7",
-              "surface-container-high": "#e8e8e6",
-              "surface-variant": "#e2e3e1",
-            },
-            fontFamily: {
-              headline: ["Newsreader", "serif"],
-              body: ["Manrope", "sans-serif"],
-              label: ["Manrope", "sans-serif"],
-              inter: ["Inter", "sans-serif"],
-            },
-          },
-        },
-      };
-    </script>
+    <!-- Tailwind CSS (local build) -->
+    <link href="assets/css/tailwind.css" rel="stylesheet" />
     <style>
       body {
         font-family: "Manrope", sans-serif;
@@ -186,6 +158,134 @@
         border-color: #0f172a !important;
         box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); /* shadow-xl */
       }
+
+      .editor-image-viewer {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        max-width: 100%;
+        max-height: calc(100vh - 14rem);
+        align-items: stretch;
+        justify-content: center;
+        padding: 1rem;
+      }
+
+      .editor-image-viewer.single-pane-mode {
+        justify-content: center;
+      }
+
+      .editor-image-viewer.single-pane-mode #processed-pane {
+        flex: 0 1 min(100%, 58rem);
+        width: min(100%, 58rem);
+        margin-inline: auto;
+      }
+
+      .editor-image-viewer.compare-active .editor-image-stage {
+        padding-top: 3.75rem;
+      }
+
+      .editor-image-pane {
+        flex: 1 1 0%;
+        min-width: 0;
+        min-height: 0;
+      }
+
+      .editor-image-stage {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .editor-image-frame {
+        position: relative;
+        width: min(100%, 1100px);
+        height: min(100%, calc(100vh - 16rem));
+        max-width: 100%;
+        max-height: 100%;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+
+      .editor-image {
+        width: 100%;
+        height: 100%;
+        max-width: 100%;
+        max-height: 100%;
+        display: block;
+        object-fit: contain !important;
+        object-position: center;
+      }
+
+      .editor-image-badge {
+        position: absolute;
+        top: 0.75rem;
+        z-index: 20;
+        max-width: calc(100% - 1.5rem);
+        white-space: nowrap;
+        pointer-events: none;
+      }
+
+      .editor-image-badge--left {
+        left: 0.75rem;
+      }
+
+      .editor-image-badge--right {
+        right: 0.75rem;
+      }
+
+      @media (max-width: 1024px) {
+        .editor-image-viewer {
+          max-height: calc(100vh - 15rem);
+          padding: 0.75rem;
+        }
+
+        .editor-image-frame {
+          height: min(100%, calc(100vh - 17rem));
+        }
+
+        .editor-image-viewer.compare-active .editor-image-stage {
+          padding-top: 3.25rem;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .editor-image-viewer {
+          max-height: calc(100vh - 16.5rem);
+          padding: 0.5rem;
+        }
+
+        .editor-image-frame {
+          width: 100%;
+          height: min(100%, calc(100vh - 18rem));
+        }
+
+        .editor-image-viewer.single-pane-mode #processed-pane {
+          flex-basis: min(100%, 34rem);
+          width: min(100%, 34rem);
+        }
+
+        .editor-image-viewer.compare-active .editor-image-stage {
+          padding-top: 2.75rem;
+        }
+
+        .editor-image-badge {
+          top: 0.5rem;
+          max-width: calc(100% - 1rem);
+          transform: scale(0.92);
+          transform-origin: top left;
+        }
+
+        .editor-image-badge--right {
+          transform-origin: top right;
+        }
+      }
     </style>
   </head>
   <body
@@ -274,22 +374,22 @@
               <img
                 class="w-32 h-20 object-cover rounded shadow-sm hover:opacity-80 transition-opacity cursor-pointer sample-img"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJP7jhsTGr3hI9mOeGow__1Ln7UOECFsU4LjEJ7oZ_uF_oaTOVpBS0_yzr_xxXlbPBIGJkcqyP5J7d7PLwdvdlVpYKVnuOgvIL-j2uot8LdaGz7Iv6zA_7qxrUlQozSf4N0_EpvzI5FuVJgELEx65uWCLW4DBvfbtJYuI2iWspchCfQsuNw-l75WZ7cj0xYHjVJvkpAzZXSoyyw41v58GXa-3n1spKARjPGv_fyHbWgGg2GLuvI9kOxXnZpPbj9m3i6gt-WFeIvx8D"
-                loading="lazy"
+                loading="eager"
               />
               <img
                 class="w-32 h-20 object-cover rounded shadow-sm hover:opacity-80 transition-opacity cursor-pointer sample-img"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuBH3Bc0SbcAPrgo7mJ6WD6w9R2nnrgv53oMlm_gK6OgR2JWumCohJvy1rq7m4Vwd0Xmi78nq-rogw2SZAXAI1GBV3SUd0eWkMQINvIfLCjkSGNbcwiGa4VOjXz9EPWzkouwzHKL6yaFQ6yp0dSbR_f2tTb4Lb6YsLVaP8VCUa-kvdIb3ThfUwAns769HI888ZjPFSfKK4aBilWIpnLBXWYzHfIGPsvsyFdRGiU3qDKrKwkwE-syDgtwLm5-KWiuBaAQFsYic90DZLcT"
-                loading="lazy"
+                loading="eager"
               />
               <img
                 class="w-32 h-20 object-cover rounded shadow-sm hover:opacity-80 transition-opacity cursor-pointer sample-img"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_pNWEFGO1Hd6zAmIC_3qSLQZQUlrWQalI7R2tZbTgaNcxwiGQzUe3jwOnEhfJ3umHey2u9gznX9dtOy7_wEuR3SewujzxydLCaeQ4CFXT9H33sYhFooO1uJkGK2eK1DjKpPSGz4V_I4U9EVDHHncOskQ6-6ldz2Swr0KE-TBbcxhFNkNFTDQ9VhfpQ8FqyBPID6OIxx8nBG9STt2ooBn63L4mkiGPRaddnxNs5RJhx_KNdCyyoxY-iiv-taAZ2aGoc8puyjtUA7zc"
-                loading="lazy"
+                loading="eager"
               />
               <img
                 class="w-32 h-20 object-cover rounded shadow-sm hover:opacity-80 transition-opacity cursor-pointer sample-img"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuASBNtuUtZ6OFuNM0L8VftrswCsnTVCv6T7zZkyvR6lFHZwznTD_89N2ItKOe36WlT24p9EfdogJYyO9PneINFw2NaI8goqg9yRe7QxZM7Mf9Fa8VrKc8IcPxs7oDdtjAcpKSLOfjzCL2ljhRrqRERmF4SA2XoqmeMNqlZHL-ssWpLh87ay2pfakJDgqmh77rr1V4v4S9jtzrrH9yOuxrH95Orq05RjuXSfDhEcvyYBc6gWNUIvGnf16x9q2QtXQnI54EfGiWsLMGtm"
-                loading="lazy"
+                loading="eager"
               />
             </div>
           </div>
@@ -374,7 +474,7 @@
                 class="absolute inset-0 w-full h-full object-cover pointer-events-none"
                 src="https://images.unsplash.com/photo-1542038784456-1ea8e935640e?q=80&w=2000&auto=format&fit=crop"
                 alt="Original"
-                loading="lazy"
+                loading="eager"
               />
               <div
                 id="landing-slider-original-badge"
@@ -395,7 +495,7 @@
                   id="landing-slider-processed-img"
                   src="https://images.unsplash.com/photo-1542038784456-1ea8e935640e?q=80&w=2000&auto=format&fit=crop"
                   alt="Processed"
-                  loading="lazy"
+                  loading="eager"
                 />
               </div>
 
@@ -479,6 +579,7 @@
             <button
               id="btn-undo"
               class="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600 active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed"
+              disabled
             >
               <i data-lucide="undo-2" class="w-4 h-4"></i>
             </button>
@@ -590,28 +691,28 @@
             <!-- 2. IMAGE PREVIEW STATE -->
             <div
               id="image-viewer-container"
-              class="hidden flex flex-col md:flex-row items-center justify-center gap-4 w-full h-full pane-transition max-h-[70vh]"
+              class="editor-image-viewer single-pane-mode hidden flex flex-col md:flex-row gap-4 w-full h-full pane-transition"
             >
               <!-- Origin Pane (Hidden initially) -->
               <div
                 id="origin-pane"
-                class="hidden opacity-0 -translate-x-8 flex-1 h-full relative overflow-hidden pane-transition transition-all duration-500"
+                class="editor-image-pane hidden flex opacity-0 -translate-x-8 h-full relative overflow-hidden pane-transition transition-all duration-500"
               >
                 <div
-                  class="relative w-full h-full flex items-center justify-center"
+                  class="editor-image-stage"
                 >
                   <div
-                    class="relative bg-white shadow-2xl rounded-sm p-1 border border-slate-200 overflow-hidden max-h-full max-w-full flex items-center justify-center"
+                    class="editor-image-frame relative bg-white shadow-2xl rounded-sm p-1 border border-slate-200 flex items-center justify-center"
                   >
                     <img
                       id="origin-image"
-                      class="max-h-full max-w-full block object-contain select-none"
+                      class="editor-image block select-none"
                       draggable="false"
                       src=""
                     />
                   </div>
                   <div
-                    class="absolute top-4 left-4 bg-slate-900 text-white text-[10px] font-extrabold tracking-[0.2em] px-4 py-2 rounded shadow-xl border border-slate-800 uppercase z-10 transition-opacity duration-500"
+                    class="editor-image-badge editor-image-badge--left bg-slate-900 text-white text-[10px] font-extrabold tracking-[0.2em] px-4 py-2 rounded shadow-xl border border-slate-800 uppercase transition-opacity duration-500"
                   >
                     Original
                   </div>
@@ -621,25 +722,25 @@
               <!-- Processed Pane -->
               <div
                 id="processed-pane"
-                class="flex-1 pane-transition h-full relative overflow-hidden shrink-0 transition-all duration-500"
+                class="editor-image-pane flex pane-transition h-full relative overflow-hidden shrink-0 transition-all duration-500"
               >
                 <div
-                  class="relative w-full h-full flex items-center justify-center bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAOklEQVQYV2N89erVfwYgIBgVQA2AIf///x/FSxNnz57FqxEEsXoIQx6HBrJaA0o0kBWjqC/RaCAwAADqQyC/U3vjRAAAAABJRU5ErkJggg==')]"
+                  class="editor-image-stage bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAOklEQVQYV2N89erVfwYgIBgVQA2AIf///x/FSxNnz57FqxEEsXoIQx6HBrJaA0o0kBWjqC/RaCAwAADqQyC/U3vjRAAAAABJRU5ErkJggg==')]"
                 >
                   <div
                     id="processed-image-frame"
-                    class="relative bg-white shadow-2xl rounded-sm p-1 overflow-hidden max-h-full max-w-full flex items-center justify-center"
+                    class="editor-image-frame relative bg-white shadow-2xl rounded-sm p-1 flex items-center justify-center"
                   >
                     <img
                       id="processed-image"
-                      class="max-h-full max-w-full block object-contain transition-all duration-300 select-none"
+                      class="editor-image block transition-all duration-300 select-none"
                       draggable="false"
                       src=""
                     />
                   </div>
                   <div
                     id="processed-badge"
-                    class="hidden absolute top-4 right-4 bg-slate-900 text-white text-[10px] font-extrabold tracking-[0.2em] px-4 py-2 rounded shadow-xl border border-slate-800 uppercase z-10 opacity-0 transition-opacity duration-500"
+                    class="editor-image-badge editor-image-badge--right hidden bg-slate-900 text-white text-[10px] font-extrabold tracking-[0.2em] px-4 py-2 rounded shadow-xl border border-slate-800 uppercase opacity-0 transition-opacity duration-500"
                   >
                     Processed
                   </div>
@@ -732,7 +833,7 @@
               <div class="relative group/tooltip">
                 <button
                   id="btn-select-tool"
-                  class="w-9 h-9 flex items-center justify-center rounded-full transition-all active:scale-90"
+                  class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-900 active:scale-90 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
                 >
                   <i data-lucide="mouse-pointer-2" class="w-4.5 h-4.5"></i>
                 </button>
@@ -750,7 +851,7 @@
               <div class="relative group/tooltip">
                 <button
                   id="btn-hand-tool"
-                  class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-900 active:scale-90"
+                  class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-900 active:scale-90 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
                 >
                   <i data-lucide="hand" class="w-4.5 h-4.5"></i>
                 </button>
@@ -944,7 +1045,7 @@
                   <div class="grid grid-cols-2 gap-3">
                     <button
                       data-preset="freeform"
-                      class="editor-tool-btn py-3.5 px-4 rounded-xl border border-slate-100 bg-white text-slate-900 font-bold text-[11px] shadow-sm active"
+                      class="editor-tool-btn py-3.5 px-4 rounded-xl border border-slate-100 bg-white text-slate-900 font-bold text-[11px] shadow-sm"
                     >
                       Freeform
                     </button>
@@ -1134,15 +1235,6 @@
               </div>
             </div>
 
-            <!-- Global Action CTA -->
-            <div class="p-6 bg-white border-t border-slate-100 shrink-0">
-              <button
-                id="btn-apply"
-                class="w-full py-3 bg-slate-900 text-white rounded-lg font-bold text-sm tracking-wide hover:opacity-90 active:translate-y-[1px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Apply Changes
-              </button>
-            </div>
           </div>
         </aside>
       </div>
@@ -1264,10 +1356,6 @@
       id="toast-container"
       class="fixed top-24 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-3 pointer-events-none"
     ></div>
-
-    <!-- Motion One & AutoAnimate Setup Script -->
-    <script src="https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.8.1/index.global.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/motion@11.11.13/dist/motion.js"></script>
 
     <!-- Scripts -->
     <script src="js/api.js"></script>

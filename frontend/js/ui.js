@@ -105,6 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
             requestAnimationFrame(() => {
                 el.editorView.classList.remove('view-hidden');
                 if (window.lucide) window.lucide.createIcons();
+                if (window.updateEditorActionState) window.updateEditorActionState();
             });
         }, 400); // 400ms is a sweet spot for switching
     }
@@ -177,15 +178,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 el.thumbIcon.classList.add('hidden');
                 el.thumbPreview.classList.remove('hidden');
                 
-                // Enable toolbar
-                el.floatingToolbarButtons.forEach(btn => {
-                    btn.removeAttribute('disabled');
-                });
-                
-                // Enable download button
-                const btnDownload = document.getElementById('btn-download');
-                if (btnDownload) btnDownload.removeAttribute('disabled');
-                
                 // Show toggle compare button
                 el.compareToggleContainer.classList.remove('hidden');
                 
@@ -221,9 +213,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const iconShow = document.getElementById('compare-icon-show');
             const iconHide = document.getElementById('compare-icon-hide');
             const processedBadge = document.getElementById('processed-badge');
+            const viewerEl = el.imageViewerContainer;
             
             if (isComparing) {
                 // Show Dual Pane
+                if (viewerEl) {
+                    viewerEl.classList.add('compare-active');
+                    viewerEl.classList.remove('single-pane-mode');
+                }
                 el.originPane.classList.remove('hidden');
                 if (processedBadge) {
                     processedBadge.classList.remove('hidden');
@@ -247,6 +244,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (el.syncIcon) el.syncIcon.classList.remove('hidden');
             } else {
                 // Hide Dual Pane
+                if (viewerEl) {
+                    viewerEl.classList.remove('compare-active');
+                    viewerEl.classList.add('single-pane-mode');
+                }
                 el.originPane.classList.add('opacity-0', '-translate-x-8');
                 if (processedBadge) {
                     processedBadge.classList.remove('opacity-100');
@@ -473,7 +474,18 @@ document.addEventListener('DOMContentLoaded', () => {
     let panStart = { x: 0, y: 0 };
 
     // Selection/Crop state (managed by CapCut Fixed Frame system below)
-    window.currentCropPreset = 'freeform'; // Share with app.js
+    window.currentCropPreset = null; // Share with app.js
+
+    function setToolButtonState(button, isActive) {
+        if (!button) return;
+
+        button.classList.toggle('bg-slate-900', isActive);
+        button.classList.toggle('text-white', isActive);
+        button.classList.toggle('hover:bg-slate-50', !isActive);
+        button.classList.toggle('text-slate-500', !isActive);
+        button.classList.toggle('hover:text-slate-900', !isActive);
+        button.blur();
+    }
 
     function applyTransform() {
         if (!el.imageViewerContainer) return;
@@ -498,16 +510,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Update Buttons UI
         if (tool === 'select') {
-            btnSelectTool.classList.add('bg-slate-900', 'text-white');
-            btnSelectTool.classList.remove('text-slate-500', 'hover:bg-slate-50');
-            btnHandTool.classList.remove('bg-slate-900', 'text-white');
-            btnHandTool.classList.add('text-slate-500', 'hover:bg-slate-50');
+            setToolButtonState(btnSelectTool, true);
+            setToolButtonState(btnHandTool, false);
             if (viewerContainer) viewerContainer.style.cursor = 'default';
         } else {
-            btnHandTool.classList.add('bg-slate-900', 'text-white');
-            btnHandTool.classList.remove('text-slate-500', 'hover:bg-slate-50');
-            btnSelectTool.classList.remove('bg-slate-900', 'text-white');
-            btnSelectTool.classList.add('text-slate-500', 'hover:bg-slate-50');
+            setToolButtonState(btnHandTool, true);
+            setToolButtonState(btnSelectTool, false);
             if (viewerContainer) viewerContainer.style.cursor = 'grab';
         }
         
@@ -520,8 +528,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Prevent shortcuts if user is typing in an input (not currently many, but good practice)
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-        if (key === 'v') setTool('select');
-        if (key === 'h') setTool('pan');
+        if (key === 'v') {
+            e.preventDefault();
+            setTool('select');
+        }
+        if (key === 'h') {
+            e.preventDefault();
+            setTool('pan');
+        }
         if (key === '+') btnZoomIn.click();
         if (key === '-') btnZoomOut.click();
         if (key === '0') btnFitScreen.click();
@@ -613,7 +627,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // PROFESSIONAL CROP SYSTEM (Freeform Handles + Fixed Ratio)
     // -------------------------------------------------------------
     let cropFrameActive = false;
-    let cropCurrentPreset = 'freeform';
+    let cropCurrentPreset = null;
 
     // Crop frame state (in display-px, relative to the rendered image's top-left)
     let cropBox = { x: 0, y: 0, w: 0, h: 0 };
