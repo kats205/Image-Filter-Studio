@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
         landingView: document.getElementById('landing-view'),
         editorView: document.getElementById('editor-view'),
         navEditorLink: document.getElementById('nav-editor-link'),
+        editorEntryLinks: document.querySelectorAll('[data-open-editor]'),
         btnBackGallery: document.getElementById('btn-back-gallery'),
         
         fileUploads: [
@@ -124,7 +125,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 400);
     }
 
-    if (el.navEditorLink) {
+    if (el.editorEntryLinks && el.editorEntryLinks.length > 0) {
+        el.editorEntryLinks.forEach(linkEl => {
+            linkEl.addEventListener('click', (e) => {
+                e.preventDefault();
+                showEditor();
+            });
+        });
+    } else if (el.navEditorLink) {
+        // Fallback for legacy markup
         el.navEditorLink.addEventListener('click', (e) => {
             e.preventDefault();
             showEditor();
@@ -561,11 +570,11 @@ document.addEventListener('DOMContentLoaded', () => {
             requestAnimationFrame(() => {
                 if (cropFrameActive) renderCropFrame();
             });
-            if (window.showToast) window.showToast('Full Screen mode disable', 'info');
+            if (window.showToast) window.showToast('Full Screen mode disabled', 'info');
         }
     }
 
-    function setTool(tool) {
+    function setTool(tool, silent = false) {
         currentTool = tool;
         
         // Update Buttons UI
@@ -579,7 +588,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (viewerContainer) viewerContainer.style.cursor = 'grab';
         }
         
-        if (window.showToast) window.showToast(`${tool.charAt(0).toUpperCase() + tool.slice(1)} tool active`);
+        if (!silent && window.showToast) window.showToast(`${tool.charAt(0).toUpperCase() + tool.slice(1)} tool active`);
     }
 
     // Keyboard Shortcuts
@@ -646,7 +655,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initial tool state & apply initial transform
-    setTool('select');
+    setTool('select', true);
     applyTransform();
 
     window.addEventListener('resize', () => {

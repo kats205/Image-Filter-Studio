@@ -475,12 +475,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             const presetKey = btn.getAttribute('data-preset') || 'freeform';
             window.currentCropPreset = presetKey;
 
-            // Kích hoạt chế độ crop kiểu CapCut (Fixed Frame)
+            // Activate fixed-frame crop mode
             if (window.activateCropMode && window.appState.originalImageId) {
                 window.activateCropMode(presetKey);
-                if (window.showToast) window.showToast(`Crop frame: ${btn.innerText.trim()} — kéo ảnh để căn chỉnh`, 'info');
+                if (window.showToast) window.showToast(`Crop frame: ${btn.innerText.trim()} - drag image to align`, 'info');
             } else if (!window.appState.originalImageId) {
-                if (window.showToast) window.showToast('Hãy upload ảnh trước', 'error');
+                if (window.showToast) window.showToast('Please upload an image first', 'error');
             }
         });
     });
@@ -490,7 +490,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (btnApplyCrop) {
         btnApplyCrop.addEventListener('click', async () => {
             if (!window.cropRegion || !window.appState.originalImageId) {
-                if (window.showToast) window.showToast('Chọn tỉ lệ crop trước', 'info');
+                if (window.showToast) window.showToast('Choose a crop ratio first', 'info');
                 return;
             }
             if (window.appState.currentIndex < 0) return;
@@ -500,19 +500,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             let sourceBlob, naturalW, naturalH;
             if (cropSt.isComposite && cropSt.origNaturalW) {
-                // Re-crop: cropRegion đã tính trong Image A space (do composite getImgBounds = Image A)
+                // Re-crop: cropRegion is already in Image A space
                 sourceBlob = window.appState.historyStack[0]?.blob;
                 naturalW   = cropSt.origNaturalW;
                 naturalH   = cropSt.origNaturalH;
             } else {
-                // Simple crop (lần đầu): dùng ảnh hiện tại, coords là local space
+                // First crop: use current image local coordinates
                 sourceBlob = window.appState.historyStack[window.appState.currentIndex]?.blob;
                 naturalW   = processedImage.naturalWidth;
                 naturalH   = processedImage.naturalHeight;
             }
 
             if (!sourceBlob || !naturalW || !naturalH) {
-                if (window.showToast) window.showToast('Ảnh chưa sẵn sàng, thử lại', 'error');
+                if (window.showToast) window.showToast('Image is not ready, please try again', 'error');
                 return;
             }
 
@@ -522,11 +522,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const h = Math.round(Math.min(cr.nh * naturalH, naturalH - y));
 
             if (w <= 0 || h <= 0) {
-                if (window.showToast) window.showToast('Vùng crop không hợp lệ', 'error');
+                if (window.showToast) window.showToast('Invalid crop area', 'error');
                 return;
             }
 
-            if (window.showToast) window.showToast('Đang xử lý crop...', 'info');
+            if (window.showToast) window.showToast('Processing crop...', 'info');
             try {
                 const blob = await cropImage(
                     window.appState.originalImageId,
@@ -534,12 +534,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     sourceBlob,
                     false
                 );
-                // Lưu sourceRegion tuyệt đối trong Image A pixel space
-                pushToHistory(blob, `Crop (${w}×${h})`, { x, y, w, h });
-                if (window.showToast) window.showToast('Crop hoàn tất!', 'success');
+                // Save sourceRegion in absolute Image A pixel space
+                pushToHistory(blob, `Crop (${w}x${h})`, { x, y, w, h });
+                if (window.showToast) window.showToast('Crop completed!', 'success');
             } catch (e) {
                 console.error('Crop error', e);
-                if (window.showToast) window.showToast('Crop thất bại', 'error');
+                if (window.showToast) window.showToast('Crop failed', 'error');
             } finally {
                 window.cropState = null;
                 if (window.deactivateCropMode) window.deactivateCropMode();
@@ -555,7 +555,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (window.deactivateCropMode) window.deactivateCropMode();
             if (processedImage) processedImage.style.transform = '';
             if (cropPresetBtns) cropPresetBtns.forEach(b => b.classList.remove('active'));
-            if (window.showToast) window.showToast('Crop đã hủy', 'info');
+            if (window.showToast) window.showToast('Crop canceled', 'info');
         });
     }
 
