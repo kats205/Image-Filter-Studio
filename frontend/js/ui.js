@@ -553,7 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 zoomImageNearFullscreen();
                 if (cropFrameActive) renderCropFrame();
             });
-            if (window.showToast) window.showToast('Focus mode enabled', 'info');
+            if (window.showToast) window.showToast('Full Screen mode enabled', 'info');
         } else {
             currentZoom = focusModePrevZoom;
             panOffset = { ...focusModePrevPan };
@@ -561,7 +561,7 @@ document.addEventListener('DOMContentLoaded', () => {
             requestAnimationFrame(() => {
                 if (cropFrameActive) renderCropFrame();
             });
-            if (window.showToast) window.showToast('Focus mode disabled', 'info');
+            if (window.showToast) window.showToast('Full Screen mode disable', 'info');
         }
     }
 
@@ -776,7 +776,7 @@ document.addEventListener('DOMContentLoaded', () => {
             border-radius:2px;cursor:${h.cursor};
             pointer-events:auto;${h.style}
         `;
-        // Only show corner handles if freeform
+        // Handle visibility is controlled later in renderCropFrame()
         el2.classList.add('crop-handle');
         cropFrame.appendChild(el2);
     });
@@ -865,9 +865,13 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         // Show/hide handles based on preset
-        const isHandle = cropCurrentPreset === 'freeform';
+        // - freeform: all handles
+        // - fixed ratios: corner handles only (resize with locked ratio)
+        const isFreeform = cropCurrentPreset === 'freeform';
         cropFrame.querySelectorAll('.crop-handle').forEach(h2 => {
-            h2.style.display = isHandle ? 'block' : 'none';
+            const handleId = h2.dataset.handle || '';
+            const isCorner = ['nw', 'ne', 'se', 'sw'].includes(handleId);
+            h2.style.display = isFreeform || isCorner ? 'block' : 'none';
         });
 
         // For fixed-ratio, make move cursor visible
@@ -1085,7 +1089,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Mouse interaction: RESIZE via handles ────────────────────
     cropFrame.querySelectorAll('.crop-handle').forEach(handleEl => {
         handleEl.addEventListener('mousedown', (e) => {
-            if (cropCurrentPreset !== 'freeform') return; // handles only for freeform
             e.preventDefault();
             e.stopPropagation();
             cropInteraction = {
@@ -1114,14 +1117,53 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // Resize
             const h = cropInteraction.handle;
-            let { x, y, w, h: bh } = sb;
 
-            if (h.includes('e')) { w  = Math.max(20, sb.w + dx); }
-            if (h.includes('s')) { bh = Math.max(20, sb.h + dy); }
-            if (h.includes('w')) { const nw = Math.max(20, sb.w - dx); x = sb.x + (sb.w - nw); w = nw; }
-            if (h.includes('n')) { const nh = Math.max(20, sb.h - dy); y = sb.y + (sb.h - nh); bh = nh; }
+            if (!ratio) {
+                // Freeform resize: width/height can change independently.
+                let { x, y, w, h: bh } = sb;
+                if (h.includes('e')) { w  = Math.max(20, sb.w + dx); }
+                if (h.includes('s')) { bh = Math.max(20, sb.h + dy); }
+                if (h.includes('w')) { const nw = Math.max(20, sb.w - dx); x = sb.x + (sb.w - nw); w = nw; }
+                if (h.includes('n')) { const nh = Math.max(20, sb.h - dy); y = sb.y + (sb.h - nh); bh = nh; }
+                cropBox = { x, y, w, h: bh };
+            } else {
+                // Fixed-ratio resize: keep the opposite corner anchored and lock aspect ratio.
+                const r = ratio.w / ratio.h;
+                const MIN = 20;
 
-            cropBox = { x, y, w, h: bh };
+                let anchorX = sb.x;
+                let anchorY = sb.y;
+                if (h === 'nw') { anchorX = sb.x + sb.w; anchorY = sb.y + sb.h; }
+                if (h === 'ne') { anchorX = sb.x;         anchorY = sb.y + sb.h; }
+                if (h === 'sw') { anchorX = sb.x + sb.w; anchorY = sb.y; }
+                if (h === 'se') { anchorX = sb.x;         anchorY = sb.y; }
+
+                const signX = h.includes('w') ? -1 : 1;
+                const signY = h.includes('n') ? -1 : 1;
+
+                const pointerX = h.includes('e') ? (sb.x + sb.w + dx) : (sb.x + dx);
+                const pointerY = h.includes('s') ? (sb.y + sb.h + dy) : (sb.y + dy);
+
+                const rawW = Math.abs(pointerX - anchorX);
+                const rawH = Math.abs(pointerY - anchorY);
+                let targetW = rawW;
+                let targetH = rawH;
+
+                if (rawH <= 0 || rawW / rawH > r) targetH = rawW / r;
+                else targetW = rawH * r;
+
+                const maxWByX = signX > 0 ? (ib.w - anchorX) : anchorX;
+                const maxHByY = signY > 0 ? (ib.h - anchorY) : anchorY;
+                const maxW = Math.max(MIN, Math.min(maxWByX, maxHByY * r));
+
+                const minW = Math.max(MIN, MIN * r);
+                targetW = Math.max(minW, Math.min(targetW, maxW));
+                targetH = targetW / r;
+
+                const x = signX > 0 ? anchorX : (anchorX - targetW);
+                const y = signY > 0 ? anchorY : (anchorY - targetH);
+                cropBox = { x, y, w: targetW, h: targetH };
+            }
         }
 
         clampCropBox(ratio);
