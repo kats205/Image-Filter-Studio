@@ -123,78 +123,53 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (empty) empty.classList.add('hidden');
 
         // Chỉ cập nhật lại toàn bộ khi số lượng thẻ không khớp (tránh flicker)
-        if (list.children.length !== stack.length) {
-            list.innerHTML = '';
-            // Render newest-first (giống Photoshop)
-            for (let i = stack.length - 1; i >= 0; i--) {
-                const item      = stack[i];
-                const isCurrent = i === active;
-                const stepNum   = i + 1;
+        // Re-render full list to keep History content in sync
+        // even when stack length is unchanged (e.g. branch replace).
+        list.innerHTML = '';
+        // Render newest-first (like Photoshop)
+        for (let i = stack.length - 1; i >= 0; i--) {
+            const item      = stack[i];
+            const isCurrent = i === active;
+            const stepNum   = i + 1;
 
-                const thumbUrl = await makeThumbnailUrl(item.blob);
+            const thumbUrl = await makeThumbnailUrl(item.blob);
 
-                const card = document.createElement('div');
-                card.dataset.stepIndex = i;
-                card.style.cursor = 'pointer';
-                card.className = [
-                    'flex items-center gap-3 p-3 rounded-2xl border transition-all duration-200',
-                    isCurrent
-                        ? 'bg-slate-900 border-slate-800 shadow-lg'
-                        : 'bg-slate-50 border-slate-100 hover:bg-slate-100 opacity-80 hover:opacity-100',
-                ].join(' ');
+            const card = document.createElement('div');
+            card.dataset.stepIndex = i;
+            card.style.cursor = 'pointer';
+            card.className = [
+                'flex items-center gap-3 p-3 rounded-2xl border transition-all duration-200',
+                isCurrent
+                    ? 'bg-slate-900 border-slate-800 shadow-lg'
+                    : 'bg-slate-50 border-slate-100 hover:bg-slate-100 opacity-80 hover:opacity-100',
+            ].join(' ');
 
-                card.innerHTML = `
-                    <div class="w-[52px] h-[52px] rounded-xl overflow-hidden shrink-0 border ${isCurrent ? 'border-slate-700' : 'border-slate-200'} bg-slate-200">
-                        ${thumbUrl ? `<img src="${thumbUrl}" class="w-full h-full object-cover" loading="eager">` : `<div class="w-full h-full flex items-center justify-center text-slate-400 text-[9px]">No img</div>`}
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-[11px] font-bold leading-snug truncate ${isCurrent ? 'text-white' : 'text-slate-900'}">
-                            ${item.action || 'Step'}
-                        </p>
-                        <p class="text-[10px] mt-0.5 ${isCurrent ? 'text-slate-400' : 'text-slate-400'}">Step ${stepNum}</p>
-                    </div>
-                    ${isCurrent ? '<span class="bg-emerald-500/20 text-emerald-400 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tighter shrink-0">Now</span>' : ''}
-                `;
+            card.innerHTML = `
+                <div class="w-[52px] h-[52px] rounded-xl overflow-hidden shrink-0 border ${isCurrent ? 'border-slate-700' : 'border-slate-200'} bg-slate-200">
+                    ${thumbUrl ? `<img src="${thumbUrl}" class="w-full h-full object-cover" loading="eager">` : `<div class="w-full h-full flex items-center justify-center text-slate-400 text-[9px]">No img</div>`}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-[11px] font-bold leading-snug truncate ${isCurrent ? 'text-white' : 'text-slate-900'}">
+                        ${item.action || 'Step'}
+                    </p>
+                    <p class="text-[10px] mt-0.5 ${isCurrent ? 'text-slate-400' : 'text-slate-400'}">Step ${stepNum}</p>
+                </div>
+                ${isCurrent ? '<span class="bg-emerald-500/20 text-emerald-400 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tighter shrink-0">Now</span>' : ''}
+            `;
 
-                card.addEventListener('click', () => {
-                    const idx = parseInt(card.dataset.stepIndex);
-                    // Non-destructive navigation: chỉ thay đổi currentIndex
-                    window.appState.currentIndex = idx;
-                    processedImage.src = window.appState.historyStack[idx].url;
-                    // Restore filterState from this step's snapshot
-                    applyFilterStateSnapshot(window.appState.historyStack[idx].filterSnapshot);
-                    // Re-render panel to update active highlight
-                    renderHistoryPanel();
-                    if (window.showToast) window.showToast(`Nhảy về Step ${idx + 1}`, 'info');
-                });
-
-                list.appendChild(card);
-            }
-        } else {
-            // Chỉ cập nhật lại highlight nếu số thẻ không đổi
-            Array.from(list.children).forEach((card) => {
-                const idx       = parseInt(card.dataset.stepIndex);
-                const isCurrent = idx === active;
-                card.className = [
-                    'flex items-center gap-3 p-3 rounded-2xl border transition-all duration-200',
-                    isCurrent
-                        ? 'bg-slate-900 border-slate-800 shadow-lg cursor-default'
-                        : 'bg-slate-50 border-slate-100 hover:bg-slate-100 opacity-80 hover:opacity-100 cursor-pointer',
-                ].join(' ');
-                // Update text colors
-                const actionText = card.querySelector('p');
-                if (actionText) actionText.className = `text-[11px] font-bold leading-snug truncate ${isCurrent ? 'text-white' : 'text-slate-900'}`;
-                // Update Now badge
-                const existingBadge = card.querySelector('span');
-                if (isCurrent && !existingBadge) {
-                    const badge = document.createElement('span');
-                    badge.className = 'bg-emerald-500/20 text-emerald-400 text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tighter shrink-0';
-                    badge.textContent = 'Now';
-                    card.appendChild(badge);
-                } else if (!isCurrent && existingBadge) {
-                    existingBadge.remove();
-                }
+            card.addEventListener('click', () => {
+                const idx = parseInt(card.dataset.stepIndex);
+                // Non-destructive navigation: only change currentIndex
+                window.appState.currentIndex = idx;
+                processedImage.src = window.appState.historyStack[idx].url;
+                // Restore filterState from this step's snapshot
+                applyFilterStateSnapshot(window.appState.historyStack[idx].filterSnapshot);
+                // Re-render panel to update active highlight
+                renderHistoryPanel();
+                if (window.showToast) window.showToast(`Jumped to Step ${idx + 1}`, 'info');
             });
+
+            list.appendChild(card);
         }
     }
 
@@ -723,3 +698,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 });
+
